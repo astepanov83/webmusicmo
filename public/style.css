@@ -153,6 +153,14 @@ svg { width: 22px; height: 22px; display: block; }
   transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
 }
 .play:hover { transform: scale(1.04); background: var(--accent-2); }
+/* While playing the button steps aside for the visualizer and only shows on hover or focus. */
+.player.playing .play { opacity: 0; transform: scale(0.9); pointer-events: none; transition: opacity 0.25s, transform 0.25s, background 0.2s; }
+.player.playing .stage:hover .play,
+.player.playing .play:focus-visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+.player.playing .stage:hover .play:hover { transform: scale(1.04); }
+@media (hover: none) {
+  .player.playing .play { opacity: 1; transform: none; pointer-events: auto; }
+}
 .play:active { transform: scale(0.97); }
 .play svg { width: 44px; height: 44px; }
 .play .ic-play { margin-left: 5px; }
