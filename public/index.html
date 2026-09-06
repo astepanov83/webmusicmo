@@ -14,6 +14,7 @@
   <div class="glow" aria-hidden="true"></div>
 
   <main class="player" id="player">
+    <div class="panel panel-left">
     <header class="top">
       <div class="station">
         <span class="station-dot" id="statusDot" aria-hidden="true"></span>
@@ -84,6 +85,16 @@
       <span id="sleepLeft"></span>
     </section>
 
+
+    <footer class="foot">
+      <a id="stationLink" href="https://www.metal-only.de" target="_blank" rel="noopener">metal-only.de</a>
+      <a id="plsLink" href="#" target="_blank" rel="noopener" title="Open in an external player">PLS</a>
+      <button class="text-btn" id="copyUrl" title="Copy the stream URL">Copy stream URL</button>
+      <span class="keys" title="Keyboard: Space play/stop, M mute, arrows volume, T theme, V visualizer">keys</span>
+    </footer>
+    </div>
+
+    <aside class="panel panel-right">
     <section class="history">
       <div class="history-head">
         <h2>Recently played</h2>
@@ -92,13 +103,7 @@
       <ol id="historyList" class="history-list"></ol>
       <div class="history-empty" id="historyEmpty">Tracks will appear here as they play.</div>
     </section>
-
-    <footer class="foot">
-      <a id="stationLink" href="https://www.metal-only.de" target="_blank" rel="noopener">metal-only.de</a>
-      <a id="plsLink" href="#" target="_blank" rel="noopener" title="Open in an external player">PLS</a>
-      <button class="text-btn" id="copyUrl" title="Copy the stream URL">Copy stream URL</button>
-      <span class="keys" title="Keyboard: Space play/stop, M mute, arrows volume, T theme, V visualizer">keys</span>
-    </footer>
+    </aside>
   </main>
 
   <div class="toast" id="toast" role="status"></div>

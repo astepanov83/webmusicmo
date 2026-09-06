@@ -91,14 +91,26 @@ svg { width: 22px; height: 22px; display: block; }
 
 .player {
   position: relative; z-index: 1;
-  width: 100%; max-width: 440px;
+  width: 100%; max-width: 860px;
   background: linear-gradient(180deg, var(--card), transparent 60%), var(--bg-2);
   border: 1px solid var(--card-border);
   border-radius: 24px;
   box-shadow: var(--shadow);
+  display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  overflow: hidden;
+}
+.panel-left {
   padding: 20px 22px 18px;
   display: flex; flex-direction: column; gap: 18px;
 }
+.panel-right {
+  border-left: 1px solid var(--card-border);
+  padding: 20px 22px 18px;
+  display: flex; flex-direction: column; min-width: 0;
+  /* Match the left panel's height and scroll inside instead of stretching the card. */
+  height: 0; min-height: 100%;
+}
+.panel-right .history { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
 /* Top bar */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -247,7 +259,7 @@ input[type="range"]::-moz-range-thumb {
 /* History */
 .history-head { display: flex; align-items: baseline; justify-content: space-between; }
 .history h2 { margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); font-weight: 600; }
-.history-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 220px; overflow: auto; }
+.history-list { list-style: none; margin: 8px 0 0; padding: 0; flex: 1; min-height: 0; overflow: auto; }
 .history-list li {
   display: flex; gap: 10px; align-items: baseline;
   padding: 7px 0; border-top: 1px solid var(--card-border);
@@ -284,6 +296,11 @@ input[type="range"]::-moz-range-thumb {
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+@media (max-width: 760px) {
+  .player { grid-template-columns: 1fr; }
+  .panel-right { border-left: 0; border-top: 1px solid var(--card-border); height: auto; min-height: 0; padding-top: 16px; }
+  .history-list { max-height: 240px; }
+}
 @media (max-width: 420px) {
   body { padding: 0; }
   .player { border-radius: 0; min-height: 100vh; border: 0; }

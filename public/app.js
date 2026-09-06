@@ -277,7 +277,7 @@
     const last = state.history[0];
     if (last && last.raw === now.raw) return;
     state.history.unshift({ raw: now.raw, artist: now.artist, song: now.song, at: Date.now() });
-    state.history = state.history.slice(0, 50);
+    state.history = state.history.slice(0, 100);
     store.set('history', state.history);
     renderHistory();
   }
