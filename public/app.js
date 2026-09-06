@@ -447,9 +447,13 @@
       const W = el.viz.width, H = el.viz.height;
       const dpr = window.devicePixelRatio || 1;
       ctx2d.clearRect(0, 0, W, H);
-      const cx = W / 2, cy = H / 2;
-      const inner = 62 * dpr;                      // just outside the 104px button
-      const maxLen = Math.min(cx, cy) - inner - 4 * dpr;
+      // Centre the ring on the button wherever CSS put it.
+      const br = el.playBtn.getBoundingClientRect();
+      const vr = el.viz.getBoundingClientRect();
+      const cx = (br.left + br.width / 2 - vr.left) * dpr;
+      const cy = (br.top + br.height / 2 - vr.top) * dpr;
+      const inner = (br.width / 2 + 10) * dpr;     // just outside the button
+      const maxLen = Math.min(cx, H - cy) - inner - 4 * dpr;
       const step = Math.PI / BANDS;                // angle between bars on one side
       const bw = Math.max(1.5 * dpr, inner * step * 0.62);
 
