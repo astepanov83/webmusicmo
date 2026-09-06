@@ -383,7 +383,11 @@
   const RELEASE = 0.86;         // per-frame decay of a bar once the signal drops
   const DB_LO = -62, DB_HI = -26; // band power range mapped to bar length 0..1 (measured on the live stream)
   const TILT_DB = 8;             // gentle lift toward the top band so treble is not always the runt
+  const PEAK_HOLD = 18;         // frames a peak cap sits still before it starts to fall
+  const PEAK_FALL = 0.012;      // how much a cap drops per frame once it lets go
   let levels = new Float32Array(BANDS);
+  const peaks = new Float32Array(BANDS);
+  const peakHold = new Uint8Array(BANDS);
   const bandDb = new Float32Array(BANDS);
   // ?debug=1 exposes the band readings so they can be inspected from the console.
   if (new URLSearchParams(location.search).has('debug')) window.__viz = { levels, bandDb };
@@ -442,6 +446,15 @@
         bandDb[i] = db;
         const v = Math.min(1, Math.max(0, (db - DB_LO) / (DB_HI - DB_LO))) ** 1.3;
         levels[i] = v > levels[i] ? v : levels[i] * RELEASE;
+        // Peak caps: jump up with the bar, hold, then fall at a steady pace.
+        if (levels[i] >= peaks[i]) {
+          peaks[i] = levels[i];
+          peakHold[i] = PEAK_HOLD;
+        } else if (peakHold[i] > 0) {
+          peakHold[i] -= 1;
+        } else {
+          peaks[i] = Math.max(levels[i], peaks[i] - PEAK_FALL);
+        }
       }
 
       const W = el.viz.width, H = el.viz.height;
@@ -453,7 +466,7 @@
       const cx = (br.left + br.width / 2 - vr.left) * dpr;
       const cy = (br.top + br.height / 2 - vr.top) * dpr;
       const inner = (br.width / 2 + 10) * dpr;     // just outside the button
-      const maxLen = Math.min(cx, H - cy) - inner - 4 * dpr;
+      const maxLen = Math.min(cx, H - cy) - inner - 10 * dpr;
       const step = Math.PI / BANDS;                // angle between bars on one side
       const bw = Math.max(1.5 * dpr, inner * step * 0.62);
 
@@ -471,12 +484,20 @@
         grad.addColorStop(1, colors.c2);
         ctx2d.strokeStyle = grad;
         ctx2d.globalAlpha = 0.4 + v * 0.6;
+        const cap = inner + Math.max(len, peaks[i] * maxLen) + 5 * dpr;
         for (const side of [1, -1]) {
           ctx2d.save();
           ctx2d.rotate(side * a);
           ctx2d.beginPath();
           ctx2d.moveTo(0, inner);
           ctx2d.lineTo(0, inner + len);
+          ctx2d.stroke();
+          // The cap: a short dash a little beyond the bar's peak.
+          ctx2d.strokeStyle = colors.c1;
+          ctx2d.globalAlpha = 0.55 + peaks[i] * 0.45;
+          ctx2d.beginPath();
+          ctx2d.moveTo(0, cap);
+          ctx2d.lineTo(0, cap + 2.5 * dpr);
           ctx2d.stroke();
           ctx2d.restore();
         }
@@ -494,6 +515,7 @@
   function clearViz() {
     ctx2d.clearRect(0, 0, el.viz.width, el.viz.height);
     levels.fill(0);
+    peaks.fill(0);
     setBass(0);
   }
 
