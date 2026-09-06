@@ -121,9 +121,13 @@ test('GET /api/now reports 502 when the station is unreachable', async () => {
   });
 });
 
-test('static handler refuses path traversal and unknown files', async () => {
+test('static handler refuses path traversal, unknown files and bad escapes', async () => {
   await withServer(baseOpts, async (base) => {
     assert.equal((await fetch(base + '/../package.json')).status, 404);
     assert.equal((await fetch(base + '/nothing-here.js')).status, 404);
+    assert.equal((await fetch(base + '/%')).status, 400);
+    assert.equal((await fetch(base + '/%E0%A4%A')).status, 400);
+    // The server must still be alive afterwards.
+    assert.equal((await fetch(base + '/api/health')).status, 200);
   });
 });
