@@ -211,6 +211,16 @@ input[type="range"]::-moz-range-thumb {
   background-image: linear-gradient(45deg, transparent 50%, var(--fg-2) 50%), linear-gradient(135deg, var(--fg-2) 50%, transparent 50%);
   background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
   background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  color-scheme: inherit;
+}
+/* The native option popup ignores the translucent select background, so give it solid colours. */
+.select option {
+  background: var(--bg-2);
+  color: var(--fg);
+}
+.select option:checked, .select option:hover {
+  background: var(--accent-soft);
+  color: var(--fg);
 }
 
 .meta {
