@@ -1,0 +1,16 @@
+{
+  "name": "webplayer",
+  "version": "1.0.0",
+  "description": "A small dark-mode web player for the METAL ONLY stream",
+  "type": "module",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
