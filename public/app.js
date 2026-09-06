@@ -47,6 +47,7 @@
     else document.documentElement.setAttribute('data-theme', theme);
     el.themeToggle.title = `Theme: ${theme} (t)`;
     store.set('theme', theme);
+    document.dispatchEvent(new Event('themechange'));
   }
   function cycleTheme() {
     const cur = store.get('theme', 'dark');
@@ -75,8 +76,10 @@
       audioCtx = new Ctx();
       const src = audioCtx.createMediaElementSource(audio);
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.82;
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0.5;
+      analyser.minDecibels = -100;
+      analyser.maxDecibels = 0;
       src.connect(analyser);
       analyser.connect(audioCtx.destination);
     } catch (err) {
@@ -370,8 +373,30 @@
   setInterval(tick, 1000);
 
   // ---------- Visualizer ----------
+  // A ring of bars around the play button, mirrored left and right.
+  // Bands are spaced logarithmically (equal width per octave) and averaged,
+  // so bass and treble get equal room. Levels rise instantly and fall slowly.
   const ctx2d = el.viz.getContext('2d');
   let vizFrame = null;
+  const BANDS = 56;             // bars per half; the ring shows twice this
+  const F_LO = 45, F_HI = 14500; // Hz; MP3 has nothing useful above 16 kHz
+  const RELEASE = 0.86;         // per-frame decay of a bar once the signal drops
+  const DB_LO = -62, DB_HI = -26; // band power range mapped to bar length 0..1 (measured on the live stream)
+  const TILT_DB = 8;             // gentle lift toward the top band so treble is not always the runt
+  let levels = new Float32Array(BANDS);
+  const bandDb = new Float32Array(BANDS);
+  // ?debug=1 exposes the band readings so they can be inspected from the console.
+  if (new URLSearchParams(location.search).has('debug')) window.__viz = { levels, bandDb };
+  let bandEdges = null;
+  let colors = { c1: '', c2: '' };
+
+  function readColors() {
+    const css = getComputedStyle(document.documentElement);
+    colors = { c1: css.getPropertyValue('--viz').trim(), c2: css.getPropertyValue('--viz-2').trim() };
+  }
+  readColors();
+  document.addEventListener('themechange', readColors);
+
   function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const r = el.viz.getBoundingClientRect();
@@ -381,41 +406,92 @@
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
 
+  function computeBandEdges() {
+    const nyquist = audioCtx.sampleRate / 2;
+    const bins = analyser.frequencyBinCount;
+    const edges = new Array(BANDS + 1);
+    for (let i = 0; i <= BANDS; i++) {
+      const hz = F_LO * (F_HI / F_LO) ** (i / BANDS);
+      edges[i] = Math.min(bins - 1, Math.round((hz / nyquist) * bins));
+    }
+    return edges;
+  }
+
+  function setBass(v) {
+    document.documentElement.style.setProperty('--bass', v.toFixed(3));
+  }
+
   function drawViz() {
     cancelAnimationFrame(vizFrame);
     if (!analyser || !vizOn) { clearViz(); return; }
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const css = () => getComputedStyle(document.documentElement);
+    if (!bandEdges) bandEdges = computeBandEdges();
+    const data = new Float32Array(analyser.frequencyBinCount);
     const frame = () => {
       if (!state.wanted || !vizOn) { clearViz(); return; }
       vizFrame = requestAnimationFrame(frame);
-      analyser.getByteFrequencyData(data);
-      const W = el.viz.width, H = el.viz.height;
-      ctx2d.clearRect(0, 0, W, H);
-      const bars = 48;
-      const gap = W * 0.006;
-      const bw = (W - gap * (bars - 1)) / bars;
-      const c1 = css().getPropertyValue('--viz').trim();
-      const c2 = css().getPropertyValue('--viz-2').trim();
-      // Use the lower two thirds of the spectrum; the top is mostly empty for music.
-      const usable = Math.floor(data.length * 0.66);
-      for (let i = 0; i < bars; i++) {
-        const idx = Math.floor((i / bars) ** 1.6 * usable);
-        const v = data[idx] / 255;
-        const h = Math.max(2, v * H * 0.9);
-        const x = i * (bw + gap);
-        const grad = ctx2d.createLinearGradient(0, H - h, 0, H);
-        grad.addColorStop(0, c1);
-        grad.addColorStop(1, c2);
-        ctx2d.fillStyle = grad;
-        ctx2d.globalAlpha = 0.35 + v * 0.6;
-        ctx2d.fillRect(x, H - h, bw, h);
+      analyser.getFloatFrequencyData(data); // dB per bin
+
+      // Sum the power of the bins in each band (wide treble bands add up, so
+      // they are not starved), turn it back into dB, then apply attack/release.
+      for (let i = 0; i < BANDS; i++) {
+        const from = bandEdges[i];
+        const to = Math.max(from + 1, bandEdges[i + 1]);
+        let power = 0;
+        for (let b = from; b < to; b++) power += 10 ** (data[b] / 10);
+        const db = 10 * Math.log10(power + 1e-12) + (i / BANDS) * TILT_DB;
+        bandDb[i] = db;
+        const v = Math.min(1, Math.max(0, (db - DB_LO) / (DB_HI - DB_LO))) ** 1.3;
+        levels[i] = v > levels[i] ? v : levels[i] * RELEASE;
       }
+
+      const W = el.viz.width, H = el.viz.height;
+      const dpr = window.devicePixelRatio || 1;
+      ctx2d.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H / 2;
+      const inner = 62 * dpr;                      // just outside the 104px button
+      const maxLen = Math.min(cx, cy) - inner - 4 * dpr;
+      const step = Math.PI / BANDS;                // angle between bars on one side
+      const bw = Math.max(1.5 * dpr, inner * step * 0.62);
+
+      ctx2d.save();
+      ctx2d.translate(cx, cy);
+      ctx2d.lineCap = 'round';
+      ctx2d.lineWidth = bw;
+      for (let i = 0; i < BANDS; i++) {
+        const v = levels[i];
+        const len = Math.max(2 * dpr, v * maxLen);
+        // Bass at the bottom (6 o'clock), treble at the top, mirrored on both sides.
+        const a = Math.PI / 2 - (i + 0.5) * step;
+        const grad = ctx2d.createLinearGradient(0, inner, 0, inner + len);
+        grad.addColorStop(0, colors.c1);
+        grad.addColorStop(1, colors.c2);
+        ctx2d.strokeStyle = grad;
+        ctx2d.globalAlpha = 0.4 + v * 0.6;
+        for (const side of [1, -1]) {
+          ctx2d.save();
+          ctx2d.rotate(side * a);
+          ctx2d.beginPath();
+          ctx2d.moveTo(0, inner);
+          ctx2d.lineTo(0, inner + len);
+          ctx2d.stroke();
+          ctx2d.restore();
+        }
+      }
+      ctx2d.restore();
       ctx2d.globalAlpha = 1;
+
+      // Bass energy drives the glow around the button and the page.
+      let bass = 0;
+      for (let i = 0; i < 6; i++) bass += levels[i];
+      setBass(bass / 6);
     };
     frame();
   }
-  function clearViz() { ctx2d.clearRect(0, 0, el.viz.width, el.viz.height); }
+  function clearViz() {
+    ctx2d.clearRect(0, 0, el.viz.width, el.viz.height);
+    levels.fill(0);
+    setBass(0);
+  }
 
   el.vizToggle.addEventListener('click', () => {
     vizOn = !vizOn;
