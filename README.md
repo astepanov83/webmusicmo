@@ -55,6 +55,7 @@ URLs and metadata.
 - Volume with a perceptual curve, mute, both remembered.
 - Quality picker: 320 kbps AAC, 192 kbps MP3, 64 kbps AAC.
 - Now playing with DJ and show, plus a history of recent tracks.
+- Phone layout: one column with the history below the player, bigger touch targets, no fixed heights.
 - Spectrum ring around the play button: log-spaced bands, fast attack and slow release, peak caps, bass-driven glow (toggle with `v`).
 - Sleep timer with a slow fade-out.
 - Auto-reconnect with backoff, and a switch to the backup servers if one host dies.

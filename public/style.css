@@ -296,14 +296,55 @@ input[type="range"]::-moz-range-thumb {
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-@media (max-width: 760px) {
-  .player { grid-template-columns: 1fr; }
-  .panel-right { border-left: 0; border-top: 1px solid var(--card-border); height: auto; min-height: 0; padding-top: 16px; }
-  .history-list { max-height: 240px; }
-}
-@media (max-width: 420px) {
-  body { padding: 0; }
-  .player { border-radius: 0; min-height: 100vh; border: 0; }
+/* Phones: one column, player on top, history below, the page scrolls as a whole. */
+@media (max-width: 700px) {
+  body { padding: 12px 12px 24px; }
+  .player { grid-template-columns: 1fr; border-radius: 16px; }
+  .panel-left { padding: 12px 16px 16px; gap: 14px; }
+  .panel-right {
+    border-left: 0; border-top: 1px solid var(--card-border);
+    padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+    /* No fixed height here: the list grows and the page scrolls. */
+    height: auto; min-height: 0;
+  }
+  .panel-right .history { flex: none; min-height: auto; }
+  .history-list { flex: none; overflow: visible; }
+
+  /* Shorter stage so play, song, artist and volume fit above the fold. */
+  .stage { height: 190px; padding-top: 20px; }
+  .play { width: 92px; height: 92px; }
+  .play svg { width: 40px; height: 40px; }
+  .now { min-height: 72px; }
+
+  /* Touch targets: 44px buttons, stacked full-width selects, a taller slider hit area. */
+  .icon-btn { width: 44px; height: 44px; }
+  .top-actions { gap: 0; }
+  input[type="range"] {
+    height: 28px; padding: 12px 0;
+    background-origin: content-box; background-clip: content-box;
+  }
+  input[type="range"]::-webkit-slider-thumb { width: 20px; height: 20px; }
+  input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; }
+  .selects { grid-template-columns: 1fr; }
+  .select select { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+  .foot { gap: 2px; }
+  .foot a, .foot .text-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
+  .keys { display: none; }
+  .history-head { align-items: center; }
+  #clearHistory { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; margin-right: -8px; }
+
+  /* History rows: time on the left, song and artist stacked, long text cut with an ellipsis. */
+  .history-list li {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 0;
+    align-items: baseline; padding: 9px 0;
+  }
+  .history-list .h-song, .history-list .h-artist {
+    grid-column: 2; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .history-list .h-artist::before { content: none; }
+  .history-empty { padding-top: 8px; }
+  .toast { bottom: calc(22px + env(safe-area-inset-bottom)); max-width: calc(100% - 24px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .station-dot, .play, .toast { animation: none; transition: none; }
