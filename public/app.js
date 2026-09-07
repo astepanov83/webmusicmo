@@ -68,12 +68,23 @@
   let vizOn = store.get('viz', true);
   el.vizToggle.setAttribute('aria-pressed', String(vizOn));
 
+  // ?debug=1 exposes the player internals (read-only) so they can be driven from the console or a test.
+  if (new URLSearchParams(location.search).has('debug')) {
+    window.__player = Object.freeze({ get audio() { return audio; }, get state() { return state; }, get audioCtx() { return audioCtx; } });
+  }
+
   function ensureAudioGraph() {
     if (audioCtx || !vizOn) return;
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       audioCtx = new Ctx();
+      // The browser parks the context in "interrupted" (Safari) or "suspended" when something
+      // outside the page takes the audio. Treat that like a system pause: see the 'pause' listener.
+      audioCtx.addEventListener('statechange', () => {
+        const s = audioCtx.state;
+        if ((s === 'interrupted' || s === 'suspended') && state.wanted && !audio.paused) pause();
+      });
       const src = audioCtx.createMediaElementSource(audio);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 4096;
@@ -116,11 +127,30 @@
       if (err && err.name === 'NotAllowedError') {
         state.wanted = false;
         stop('Tap play to start');
+      } else if (err && err.name === 'AbortError') {
+        // A newer play(), a stop() or a system pause took over the element. Whoever did that owns the state now.
       } else {
         scheduleRetry(err);
       }
     });
     store.set('wasPlaying', true);
+  }
+
+  // Pause but keep the element and its source: the browser keeps the media notification for a
+  // paused element, so the lock screen still offers a play button. Nothing restarts on its own
+  // from here; the next play() rejoins the live edge with a fresh connection.
+  function pause(statusText = 'Paused') {
+    state.wanted = false;
+    state.retries = 0;
+    clearTimeout(state.retryTimer);
+    clearTimeout(stallTimer);
+    if (!audio.paused) audio.pause();
+    el.player.classList.remove('playing');
+    el.playBtn.setAttribute('aria-label', 'Play');
+    setStatus('', statusText);
+    state.startedAt = 0;
+    el.elapsed.textContent = '';
+    updateMediaSession();
   }
 
   function stop(statusText = 'Stopped') {
@@ -174,6 +204,27 @@
     stallTimer = setTimeout(() => state.wanted && audio.readyState < 3 && scheduleRetry(new Error('stalled')), 15000);
   });
   audio.addEventListener('playing', () => clearTimeout(stallTimer));
+
+  // Pauses the app did not ask for.
+  //
+  // What the browser does on a phone call (or when another app takes the audio): it pauses the
+  // element itself, so 'pause' fires and audio.paused becomes true, but nothing in the page is
+  // told why. Before this listener existed state.wanted stayed true, so the 'error', 'ended' and
+  // stall paths above kept calling play() and the stream came back in the middle of the call.
+  //
+  // What the app guarantees now: a pause that did not come from stop() or pause() puts the player
+  // in "Paused". state.wanted is false, so no retry, no stall timer and no quality switch restarts
+  // the stream, and audioCtx.resume() is not called. Playback resumes only through play(): the
+  // play button, the keyboard, the lock-screen play action, or the browser handing the audio back
+  // after the call (that arrives as a 'play' event, handled below). Every resume reconnects fresh.
+  audio.addEventListener('pause', () => {
+    if (!state.wanted) { updateMediaSession(); return; } // our own stop() or pause()
+    if (audio.ended || audio.error) return;               // 'ended' and 'error' reconnect on their own
+    pause();
+  });
+  // A 'play' we did not start: Chrome resumes the element when the call ends and audio focus comes
+  // back. The buffered data is stale for a live stream, so go through play() and rejoin the edge.
+  audio.addEventListener('play', () => (state.wanted ? updateMediaSession() : play()));
 
   el.playBtn.addEventListener('click', () => (state.wanted ? stop() : play()));
 
@@ -311,6 +362,11 @@
   renderHistory();
 
   // ---------- Media Session (OS media keys, lock screen) ----------
+  // Chrome for Android picks 512x512 artwork (256x256 on low-end phones) and wants PNG; an SVG
+  // may be ignored. The notification shows the song as title and the artist as subtitle.
+  // playbackState follows the real element, not what the app wants, so the lock-screen button
+  // matches what is actually happening. No previous/next: it is a live stream.
+  const ARTWORK = [512, 256].map((px) => ({ src: `${location.origin}/icon-${px}.png`, sizes: `${px}x${px}`, type: 'image/png' }));
   function updateMediaSession() {
     if (!('mediaSession' in navigator)) return;
     const now = state.now || {};
@@ -319,15 +375,15 @@
         title: now.song || el.stationName.textContent,
         artist: now.artist || (now.dj ? `${now.dj} on air` : ''),
         album: el.stationName.textContent,
-        artwork: [{ src: location.origin + '/favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+        artwork: ARTWORK,
       });
-      navigator.mediaSession.playbackState = state.wanted ? 'playing' : 'paused';
+      navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
     } catch { /* ignore */ }
   }
   if ('mediaSession' in navigator) {
-    for (const action of ['play']) navigator.mediaSession.setActionHandler(action, () => play());
-    for (const action of ['pause', 'stop']) {
-      try { navigator.mediaSession.setActionHandler(action, () => stop()); } catch { /* unsupported */ }
+    const actions = [['play', () => play()], ['pause', () => pause()], ['stop', () => stop()]];
+    for (const [action, handler] of actions) {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* unsupported */ }
     }
   }
 
@@ -389,7 +445,7 @@
   const peaks = new Float32Array(BANDS);
   const peakHold = new Uint8Array(BANDS);
   const bandDb = new Float32Array(BANDS);
-  // ?debug=1 exposes the band readings so they can be inspected from the console.
+  // ?debug=1 exposes the band readings so they can be inspected from the console (see window.__player too).
   if (new URLSearchParams(location.search).has('debug')) window.__viz = { levels, bandDb };
   let bandEdges = null;
   let colors = { c1: '', c2: '' };

@@ -59,7 +59,14 @@ URLs and metadata.
 - Spectrum ring around the play button: log-spaced bands, fast attack and slow release, peak caps, bass-driven glow (toggle with `v`).
 - Sleep timer with a slow fade-out.
 - Auto-reconnect with backoff, and a switch to the backup servers if one host dies.
-- OS media keys and lock-screen info through the Media Session API.
+- Lock screen and media notification through the Media Session API: station artwork
+  (`public/icon-512.png`, `icon-256.png`), song as title, artist as subtitle, play and pause.
+  No previous/next, it is a live stream.
+- Phone calls and other audio interruptions: when the browser pauses the player, the app shows
+  "Paused" and does not reconnect on its own. No retry and no stall timer runs until play is
+  pressed again (on the page, the keyboard, or the lock screen) or the browser hands the audio back
+  after the call. Every resume rejoins the live edge with a fresh connection.
+- `?debug=1` exposes `window.__player` (audio element, state, AudioContext) for testing.
 - Theme toggle: dark, light, or follow the system (`t`).
 - Keyboard: `Space` play/stop, `M` mute, arrows for volume.
 
