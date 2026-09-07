@@ -61,3 +61,10 @@ URLs and metadata.
 - OS media keys and lock-screen info through the Media Session API.
 - Theme toggle: dark, light, or follow the system (`t`).
 - Keyboard: `Space` play/stop, `M` mute, arrows for volume.
+
+## Docker
+
+```sh
+./docker_build.sh                 # build and push gitea.gitpal.ru/alex/webmusicmo
+docker run -p 8420:8420 gitea.gitpal.ru/alex/webmusicmo
+```
