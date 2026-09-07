@@ -7,7 +7,7 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NODE="$(command -v node)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-UNIT="$UNIT_DIR/webplayer.service"
+UNIT="$UNIT_DIR/webmusicmo.service"
 
 port_free() { ! (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 
@@ -20,12 +20,12 @@ fi
 
 mkdir -p "$UNIT_DIR"
 sed -e "s|__DIR__|$DIR|g" -e "s|__PORT__|$PORT|g" -e "s|__NODE__|$NODE|g" \
-  "$DIR/webplayer.service" > "$UNIT"
+  "$DIR/webmusicmo.service" > "$UNIT"
 
 systemctl --user daemon-reload
-systemctl --user enable --now webplayer.service
-systemctl --user restart webplayer.service
+systemctl --user enable --now webmusicmo.service
+systemctl --user restart webmusicmo.service
 
-echo "webplayer is running on http://127.0.0.1:$PORT"
+echo "webmusicmo is running on http://127.0.0.1:$PORT"
 echo "unit: $UNIT"
-echo "logs: journalctl --user -u webplayer -f"
+echo "logs: journalctl --user -u webmusicmo -f"

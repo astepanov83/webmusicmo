@@ -11,7 +11,7 @@ const PLS_URL = process.env.PLS_URL || 'https://metal-only.streampanel.cloud/lis
 const server = http.createServer(createApp({ plsUrl: PLS_URL }));
 
 server.listen(PORT, HOST, () => {
-  console.log(`webplayer listening on http://${HOST}:${PORT}  (pls: ${PLS_URL})`);
+  console.log(`webmusicmo listening on http://${HOST}:${PORT}  (pls: ${PLS_URL})`);
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {

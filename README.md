@@ -1,4 +1,4 @@
-# webplayer
+# webmusicmo
 
 A small, dark web player for the [METAL ONLY](https://www.metal-only.de) stream.
 Built to live in a RamBox tab. No dependencies, no build step.
@@ -29,13 +29,13 @@ scripts/install-service.sh 9000     # or choose one
 scripts/uninstall-service.sh
 ```
 
-The install script writes a systemd user unit to `~/.config/systemd/user/webplayer.service`,
+The install script writes a systemd user unit to `~/.config/systemd/user/webmusicmo.service`,
 enables it and starts it. It restarts on failure and comes back after reboot.
 Check on it with:
 
 ```sh
-systemctl --user status webplayer
-journalctl --user -u webplayer -f
+systemctl --user status webmusicmo
+journalctl --user -u webmusicmo -f
 ```
 
 ## What the server does
