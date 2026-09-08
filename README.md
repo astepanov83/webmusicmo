@@ -30,6 +30,12 @@ Environment:
 leading zero: the shell reads a leading zero as base eight, so `010` means 8
 hours, not 10.
 
+The systemd units set `STATIONS_FILE` to a path under the user's home
+directory (`%h/.local/state/webmusicmo/stations.json`), not the repository
+copy. That keeps the daily refresh from rewriting a file tracked by git,
+which would otherwise leave the working tree dirty and block `git pull` on
+the deployment host. Docker keeps the default path inside the image.
+
 ## Run it as a service
 
 ```sh

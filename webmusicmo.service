@@ -11,6 +11,9 @@ Type=simple
 WorkingDirectory=__DIR__
 Environment=PORT=__PORT__
 Environment=HOST=127.0.0.1
+# A writable path outside the repo, so the refresh never dirties the tracked seed file and
+# blocks "git pull". Must stay in step with STATE_DIR in scripts/install-service.sh.
+Environment=STATIONS_FILE=%h/.local/state/webmusicmo/stations.json
 ExecStart=__NODE__ server.js
 Restart=on-failure
 RestartSec=3
