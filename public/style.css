@@ -122,7 +122,9 @@ svg { width: 22px; height: 22px; display: block; }
 }
 .stations-head { display: flex; align-items: center; justify-content: space-between; min-height: 24px; }
 .stations-head h2 { margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); font-weight: 600; }
-.stations-close { display: none; }
+/* The close button belongs to the phone overlay. It shares .icon-btn, which sets its own
+   display, so name both classes here to win on specificity rather than on file order. */
+.icon-btn.stations-close { display: none; }
 .station-filter {
   width: 100%; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
   padding: 7px 10px; font-size: 13px; color: var(--fg); outline: none;
@@ -390,7 +392,7 @@ input[type="range"]::-moz-range-thumb {
     padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
   }
   .player.stations-open .panel-stations { display: flex; }
-  .stations-close { display: grid; }
+  .icon-btn.stations-close { display: grid; }
   .station .ic-chevron { display: block; }
   .station-filter { min-height: 44px; font-size: 15px; }
   .station-row { padding: 8px; min-height: 56px; grid-template-columns: 44px minmax(0, 1fr); }

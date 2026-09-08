@@ -75,14 +75,14 @@ journalctl --user -u webmusicmo-refresh -f
 | --------------------- | --------------------------------------------------------------- |
 | `id`                  | Short, unique, used in the URL and in storage keys              |
 | `name`                | Shown in the station list and the header                        |
-| `description`         | Shown under the name                                             |
+| `description`         | The station row's tooltip; also matched by the filter box       |
 | `genre`               | Shown as a tag                                                  |
 | `dj`                  | Shown when the station names a host                             |
 | `site`                | Link to the station's own page                                  |
 | `logo`                | Artwork shown in the list and, where it exists, on the lock screen |
 | `source`              | `local` or `somafm`                                              |
 | `playlists[].url`     | A PLS playlist to resolve into real stream URLs                 |
-| `playlists[].format`  | `mp3` or `aac`                                                  |
+| `playlists[].format`  | As given by the source, informational only                      |
 | `playlists[].quality` | As given by the source, informational only                      |
 | `nowPlaying.kind`     | `icecast` (read the mount's `status-json.xsl`) or `somafm` (read SomaFM's songs feed) |
 | `nowPlaying.url`      | Only for `somafm`: the songs feed to read                       |
@@ -110,7 +110,8 @@ today that is METAL ONLY. To add a station, add an entry to
 - `GET /api/now?station=<id>` returns the current track plus listeners and a
   recent-tracks list. The list is empty for an Icecast station; for a
   SomaFM station it holds roughly the last twenty tracks, and seeds the
-  recently-played panel.
+  recently-played panel. Answers 404 for an unknown station and 502 if the
+  station cannot be reached, the same as `/api/streams`.
 - `GET /api/health` for a liveness check.
 
 Without `station`, the first station in the list is used, which is METAL ONLY.
