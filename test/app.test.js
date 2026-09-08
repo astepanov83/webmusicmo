@@ -313,10 +313,12 @@ test('static handler refuses path traversal, unknown files and bad escapes', asy
     assert.equal((await fetch(base + '/nothing-here.js')).status, 404);
     assert.equal((await fetch(base + '/%')).status, 400);
     assert.equal((await fetch(base + '/%E0%A4%A')).status, 400);
-    // The browser normalises a literal ".." away before the request is sent, so it never
-    // reaches the server's own guard. A percent-encoded traversal survives to decodeURIComponent
-    // and actually exercises it.
-    assert.equal((await fetch(base + '/%2e%2e/package.json')).status, 404);
+    // A literal ".." is normalised away by the client before the request is sent, and even
+    // "%2e%2e" is recognised as a dot segment and collapsed the same way, so neither reaches
+    // the server's own guard. Encoding the slash instead ("..%2f") keeps ".." and the slash
+    // as one opaque path segment through parsing, so it arrives intact, decodes to "/../package.json"
+    // on the server, and 404s only because of the startsWith check in serveStatic.
+    assert.equal((await fetch(base + '/..%2fpackage.json')).status, 404);
     // decodeURIComponent('/%00') succeeds and gives a null byte, which crashes fs.stat
     // synchronously if it is not rejected first.
     assert.equal((await fetch(base + '/%00')).status, 400);

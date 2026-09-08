@@ -36,6 +36,11 @@ copy. That keeps the daily refresh from rewriting a file tracked by git,
 which would otherwise leave the working tree dirty and block `git pull` on
 the deployment host. Docker keeps the default path inside the image.
 
+On a systemd install, a bare `npm run refresh` only rewrites the seed copy
+in the repository, not the file the service reads. To refresh the list the
+service actually uses, set `STATIONS_FILE` to the same path as the units:
+`STATIONS_FILE=~/.local/state/webmusicmo/stations.json npm run refresh`.
+
 ## Run it as a service
 
 ```sh
