@@ -43,7 +43,33 @@ const STATIONS = {
       ],
       nowPlaying: { kind: 'somafm', url: 'https://songs.example/gs.json' },
     },
+    {
+      id: 'fbstation', name: 'Fallback Station', description: '', genre: '', dj: '', site: '', logo: '', source: 'local',
+      playlists: [
+        { url: 'http://fbbroken.example/listen.pls', format: 'mp3', quality: 'highest' },
+        { url: 'http://fbworking.example/listen.pls', format: 'aac', quality: 'highest' },
+      ],
+      nowPlaying: { kind: 'icecast' },
+    },
+    {
+      id: 'noprobe', name: 'No Probe', description: '', genre: '', dj: '', site: '', logo: '', source: 'local',
+      playlists: [{ url: 'http://noprobe.example/listen.pls', format: 'mp3', quality: 'highest' }],
+      nowPlaying: { kind: 'icecast' },
+    },
   ],
+};
+
+// Fallback Station: playlists[0] cannot be loaded (not in NET), playlists[1] is the one
+// that actually resolves. plsUrl must name the one that was actually used.
+const FB_PLS = '[playlist]\nFile1=https://fbreal.example/stream\nFile2=https://fbfallback.example/stream\n';
+
+// No Probe: the primary's HEAD probe fails (its stream URL is not in NET), so it lands on
+// bitrate: null, type: ''. Its status page advertises one other mount, also with no bitrate.
+const PLS_NOPROBE = '[playlist]\nFile1=https://real-noprobe.example/stream\n';
+const STATUS_NOBITRATE = {
+  icestats: {
+    source: [{ listenurl: 'http://noprobe-status.example/other', title: 'X - Y' }],
+  },
 };
 
 // Map of url -> string | object | { redirectTo, headers } for HEAD probes.
@@ -77,6 +103,10 @@ const NET = {
   'https://ice2.example/gs-128-aac': { headers: { 'icy-br': '128', 'content-type': 'audio/aac' } },
   'https://ice2.example/gs-64-aac': { headers: { 'icy-br': '64', 'content-type': 'audio/aacp' } },
   'https://songs.example/gs.json': SONGS,
+  'http://fbworking.example/listen.pls': FB_PLS,
+  'https://fbreal.example/stream': { headers: { 'icy-br': '128', 'content-type': 'audio/mpeg' } },
+  'http://noprobe.example/listen.pls': PLS_NOPROBE,
+  'https://real-noprobe.example/status-json.xsl': STATUS_NOBITRATE,
 };
 
 function stationsFile(data = STATIONS) {
@@ -233,6 +263,27 @@ test('GET /api/now reports 502 when the station is unreachable', async () => {
     const res = await fetch(base + '/api/now');
     assert.equal(res.status, 502);
     assert.match((await res.json()).error, /down/);
+  });
+});
+
+test('GET /api/streams reports plsUrl for the playlist that actually resolved, not the first configured one', async () => {
+  await withServer(baseOpts, async (base) => {
+    const body = await (await fetch(base + '/api/streams?station=fbstation')).json();
+    assert.equal(body.plsUrl, 'http://fbworking.example/listen.pls');
+    assert.deepEqual(body.streams, [
+      { url: 'https://fbreal.example/stream', mount: 'stream', bitrate: 128, type: 'audio/mpeg', primary: true, format: 'aac' },
+    ]);
+    assert.deepEqual(body.fallbacks, ['https://fbfallback.example/stream']);
+  });
+});
+
+test('GET /api/streams keeps a status-advertised mount with no bitrate instead of dropping it as a false duplicate', async () => {
+  await withServer(baseOpts, async (base) => {
+    const body = await (await fetch(base + '/api/streams?station=noprobe')).json();
+    assert.deepEqual(body.streams, [
+      { url: 'https://real-noprobe.example/stream', mount: 'stream', bitrate: null, type: '', primary: true, format: 'mp3' },
+      { url: 'https://real-noprobe.example/other', mount: 'other', bitrate: null, type: '', primary: false, format: '' },
+    ]);
   });
 });
 
