@@ -358,6 +358,10 @@
   el.stationFilter.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { el.stationFilter.value = ''; renderStations(); el.stationFilter.blur(); closeStations(); }
   });
+  // Leaving phone width turns the overlay back into the desktop column, so drop the
+  // overlay state with it rather than leaving the page scroll-locked.
+  const phoneQuery = window.matchMedia('(max-width: 700px)');
+  phoneQuery.addEventListener('change', (e) => { if (!e.matches) closeStations(); });
 
   function stepStation(delta) {
     if (!state.stations.length) return;
@@ -373,10 +377,17 @@
     return [kbps, codec].filter(Boolean).join(' ');
   }
 
-  async function loadStreams(station) {
+  // Ask the server for a station's streams. Nothing on the page changes here, so a
+  // reply the user no longer wants can be dropped without leaving a trace.
+  async function fetchStreams(station) {
     const res = await fetch(`/api/streams?station=${encodeURIComponent(station.id)}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('streams ' + res.status);
     const data = await res.json();
+    if (!Array.isArray(data.streams) || !data.streams.length) throw new Error('streams: empty list');
+    return data;
+  }
+
+  function applyStreams(station, data) {
     state.streams = data.streams;
     state.fallbacks = data.fallbacks || [];
     el.stationName.textContent = station.name;
@@ -425,15 +436,22 @@
     const resume = state.wanted;
     state.station = station;
     markCurrentStation();
+    let data;
     try {
-      await loadStreams(station);
+      data = await fetchStreams(station);
     } catch (err) {
       console.warn('station unreachable', err);
-      state.station = previous;
-      markCurrentStation();
-      toast('Station unreachable');
+      // Only undo the choice if the user has not since picked something else.
+      if (state.station === station) {
+        state.station = previous;
+        markCurrentStation();
+        toast('Station unreachable');
+      }
       return false;
     }
+    // A reply for a station the user has already left changes nothing.
+    if (state.station !== station) return false;
+    applyStreams(station, data);
     store.set('station', station.id);
     setStationParam(station.id);
     state.history = store.get(`history:${station.id}`, []);
@@ -460,8 +478,12 @@
         console.warn('now-playing unavailable', err);
       }
     }
-    const interval = document.hidden ? 60000 : state.wanted ? 10000 : 30000;
-    nowTimer = setTimeout(pollNow, interval);
+    // Only the poll that still matches the chosen station owns the next tick, so a
+    // stale call cannot leave a second timer running.
+    if (state.station === station) {
+      const interval = document.hidden ? 60000 : state.wanted ? 10000 : 30000;
+      nowTimer = setTimeout(pollNow, interval);
+    }
   }
 
   function applyNow(now) {
@@ -498,6 +520,7 @@
 
   // The station's own recent-tracks list, used when this browser has heard nothing here yet.
   function seedHistory(list) {
+    if (!state.station) return;
     state.history = list.map((h) => ({ raw: h.artist ? `${h.artist} - ${h.song}` : h.song, artist: h.artist, song: h.song, at: h.at || Date.now() }));
     store.set(`history:${state.station.id}`, state.history);
     renderHistory();
@@ -525,6 +548,7 @@
     }
   }
   el.clearHistory.addEventListener('click', () => {
+    if (!state.station) return;
     state.history = [];
     store.set(`history:${state.station.id}`, []);
     renderHistory();
