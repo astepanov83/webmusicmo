@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#0b0b0e">
-  <title>Metal Only</title>
+  <title>webmusicmo</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
@@ -14,15 +14,26 @@
   <div class="glow" aria-hidden="true"></div>
 
   <main class="player" id="player">
+    <aside class="panel panel-stations" id="stationsPanel" aria-label="Stations">
+      <div class="stations-head">
+        <h2>Stations</h2>
+        <button class="icon-btn stations-close" id="stationsClose" aria-label="Close">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <input type="search" id="stationFilter" class="station-filter" placeholder="Filter (/)" aria-label="Filter stations" autocomplete="off">
+      <ol id="stationList" class="station-list"></ol>
+    </aside>
     <div class="panel panel-left">
     <header class="top">
-      <div class="station">
+      <button class="station" id="stationBtn" title="Stations">
         <span class="station-dot" id="statusDot" aria-hidden="true"></span>
-        <div>
-          <div class="station-name" id="stationName">Metal Only</div>
-          <div class="station-status" id="statusText">Stopped</div>
-        </div>
-      </div>
+        <span class="station-text">
+          <span class="station-name" id="stationName">Loading</span>
+          <span class="station-status" id="statusText">Stopped</span>
+        </span>
+        <svg class="ic-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </button>
       <div class="top-actions">
         <button class="icon-btn" id="vizToggle" title="Toggle visualizer (v)" aria-pressed="true">
           <svg viewBox="0 0 24 24"><path d="M4 14v6M9 8v12M14 4v16M19 11v9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>
@@ -87,10 +98,10 @@
 
 
     <footer class="foot">
-      <a id="stationLink" href="https://www.metal-only.de" target="_blank" rel="noopener">metal-only.de</a>
+      <a id="stationLink" href="https://www.metal-only.de" target="_blank" rel="noopener">Loading</a>
       <a id="plsLink" href="#" target="_blank" rel="noopener" title="Open in an external player">PLS</a>
       <button class="text-btn" id="copyUrl" title="Copy the stream URL">Copy stream URL</button>
-      <span class="keys" title="Keyboard: Space play/stop, M mute, arrows volume, T theme, V visualizer">keys</span>
+      <span class="keys" title="Keyboard: Space play/stop, M mute, arrows volume, [ ] station, / filter, T theme, V visualizer">keys</span>
     </footer>
     </div>
 

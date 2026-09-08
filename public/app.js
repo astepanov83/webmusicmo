@@ -11,6 +11,8 @@
     historyList: $('historyList'), clearHistory: $('clearHistory'),
     stationLink: $('stationLink'), plsLink: $('plsLink'), copyUrl: $('copyUrl'),
     themeToggle: $('themeToggle'), vizToggle: $('vizToggle'), viz: $('viz'), toast: $('toast'),
+    stationBtn: $('stationBtn'), stationsPanel: $('stationsPanel'), stationsClose: $('stationsClose'),
+    stationFilter: $('stationFilter'), stationList: $('stationList'),
   };
 
   // ---------- Persistent settings ----------
@@ -26,7 +28,19 @@
     },
   };
 
+  // Version 1 kept one history and one quality. They belong to Metal Only now.
+  if (store.get('history', null) !== null) {
+    store.set('history:metal-only', store.get('history', []));
+    localStorage.removeItem('webplayer:history');
+  }
+  if (store.get('mount', null) !== null) {
+    store.set('mount:metal-only', store.get('mount', null));
+    localStorage.removeItem('webplayer:mount');
+  }
+
   const state = {
+    stations: [],
+    station: null,          // chosen station object
     streams: [],
     fallbacks: [],
     current: null,          // chosen stream object
@@ -35,7 +49,7 @@
     retryTimer: null,
     startedAt: 0,
     now: null,              // last now-playing object
-    history: store.get('history', []),
+    history: [],
     sleepUntil: 0,
     sleepTimer: null,
   };
@@ -246,6 +260,112 @@
   el.volume.addEventListener('input', () => { setVolume(Number(el.volume.value)); if (audio.muted) setMuted(false); });
   el.muteBtn.addEventListener('click', () => setMuted(!audio.muted));
 
+  // ---------- Stations ----------
+  const isPhone = () => window.matchMedia('(max-width: 700px)').matches;
+
+  async function loadStations() {
+    const res = await fetch('/api/stations', { cache: 'no-store' });
+    if (res.status === 503) throw new Error('No station list');
+    if (!res.ok) throw new Error('stations ' + res.status);
+    state.stations = (await res.json()).stations;
+    renderStations();
+  }
+
+  // ?station= wins, then the saved one, then the first in the list.
+  function pickInitialStation() {
+    const fromUrl = new URLSearchParams(location.search).get('station');
+    const saved = store.get('station', null);
+    return state.stations.find((s) => s.id === fromUrl) || state.stations.find((s) => s.id === saved) || state.stations[0];
+  }
+
+  function setStationParam(id) {
+    const params = new URLSearchParams(location.search);
+    params.set('station', id);
+    history.replaceState(null, '', `${location.pathname}?${params}`);
+  }
+
+  function genreText(s) {
+    return (s.genre || '').split('|').filter(Boolean).join(' · ');
+  }
+
+  function renderStations() {
+    const q = el.stationFilter.value.trim().toLowerCase();
+    el.stationList.innerHTML = '';
+    for (const s of state.stations) {
+      if (q && !`${s.name} ${s.genre} ${s.description}`.toLowerCase().includes(q)) continue;
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'station-row';
+      btn.dataset.id = s.id;
+      btn.title = s.description || s.name;
+      if (state.station && s.id === state.station.id) btn.setAttribute('aria-current', 'true');
+      let logo;
+      if (s.logo) {
+        logo = document.createElement('img');
+        logo.className = 's-logo';
+        logo.src = s.logo;
+        logo.alt = '';
+        logo.loading = 'lazy';
+      } else {
+        logo = document.createElement('span');
+        logo.className = 's-logo s-initial';
+        logo.textContent = s.name.slice(0, 1).toUpperCase();
+      }
+      const text = document.createElement('span');
+      const name = document.createElement('span');
+      name.className = 's-name';
+      name.textContent = s.name;
+      const genre = document.createElement('span');
+      genre.className = 's-genre';
+      genre.textContent = genreText(s) || (s.dj ? s.dj : '');
+      text.append(name, genre);
+      text.style.display = 'grid';
+      btn.append(logo, text);
+      btn.addEventListener('click', () => { selectStation(s); closeStations(); });
+      li.appendChild(btn);
+      el.stationList.appendChild(li);
+    }
+    if (!el.stationList.childElementCount) {
+      const li = document.createElement('li');
+      li.className = 'stations-empty';
+      li.textContent = 'No station matches';
+      el.stationList.appendChild(li);
+    }
+  }
+
+  function markCurrentStation() {
+    for (const btn of el.stationList.querySelectorAll('.station-row')) {
+      if (state.station && btn.dataset.id === state.station.id) btn.setAttribute('aria-current', 'true');
+      else btn.removeAttribute('aria-current');
+    }
+  }
+
+  function openStations() {
+    if (isPhone()) {
+      el.player.classList.add('stations-open');
+      document.body.classList.add('modal');
+    }
+    el.stationFilter.focus();
+  }
+  function closeStations() {
+    el.player.classList.remove('stations-open');
+    document.body.classList.remove('modal');
+  }
+  el.stationBtn.addEventListener('click', openStations);
+  el.stationsClose.addEventListener('click', closeStations);
+  el.stationFilter.addEventListener('input', renderStations);
+  el.stationFilter.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { el.stationFilter.value = ''; renderStations(); el.stationFilter.blur(); closeStations(); }
+  });
+
+  function stepStation(delta) {
+    if (!state.stations.length) return;
+    const i = state.stations.findIndex((s) => state.station && s.id === state.station.id);
+    const next = state.stations[(i + delta + state.stations.length) % state.stations.length];
+    selectStation(next);
+  }
+
   // ---------- Streams / quality ----------
   function label(s) {
     const codec = /aac/i.test(s.type) ? 'AAC' : /mpeg|mp3/i.test(s.type) ? 'MP3' : '';
@@ -253,16 +373,16 @@
     return [kbps, codec].filter(Boolean).join(' ');
   }
 
-  async function loadStreams() {
-    const res = await fetch('/api/streams', { cache: 'no-store' });
+  async function loadStreams(station) {
+    const res = await fetch(`/api/streams?station=${encodeURIComponent(station.id)}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('streams ' + res.status);
     const data = await res.json();
     state.streams = data.streams;
     state.fallbacks = data.fallbacks || [];
-    el.stationName.textContent = (data.station || 'Stream').split(' - ')[0];
-    document.title = el.stationName.textContent;
-    if (data.stationUrl) el.stationLink.href = data.stationUrl;
-    el.stationLink.textContent = (data.stationUrl || el.stationLink.href).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    el.stationName.textContent = station.name;
+    document.title = station.name;
+    el.stationLink.href = data.stationUrl || station.site || '#';
+    el.stationLink.textContent = (data.stationUrl || station.site || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') || 'site';
     el.plsLink.href = data.plsUrl;
 
     el.quality.innerHTML = '';
@@ -273,7 +393,7 @@
       opt.textContent = label(s) + (s.primary ? ' · default' : '');
       el.quality.appendChild(opt);
     }
-    const savedMount = store.get('mount', null);
+    const savedMount = store.get(`mount:${station.id}`, null);
     state.current = state.streams.find((s) => s.mount === savedMount) || state.streams.find((s) => s.primary) || state.streams[0];
     el.quality.value = state.current.mount;
     el.bitrate.textContent = label(state.current);
@@ -283,21 +403,62 @@
     const s = state.streams.find((x) => x.mount === el.quality.value);
     if (!s) return;
     state.current = s;
-    store.set('mount', s.mount);
+    store.set(`mount:${state.station.id}`, s.mount);
     el.bitrate.textContent = label(s);
     if (state.wanted) play();
   });
+
+  function clearNow() {
+    state.now = null;
+    el.song.textContent = state.wanted ? 'Live' : 'Press play';
+    el.artist.innerHTML = '&nbsp;';
+    el.show.innerHTML = '';
+    el.listeners.textContent = '';
+  }
+
+  // Switch to a station. Returns true when its streams could be loaded. With `initial`
+  // the page is booting: nothing is playing yet, so no play() and no "same station" shortcut.
+  async function selectStation(station, { initial = false } = {}) {
+    if (!station) return false;
+    if (!initial && state.station && station.id === state.station.id) return true;
+    const previous = state.station;
+    const resume = state.wanted;
+    state.station = station;
+    markCurrentStation();
+    try {
+      await loadStreams(station);
+    } catch (err) {
+      console.warn('station unreachable', err);
+      state.station = previous;
+      markCurrentStation();
+      toast('Station unreachable');
+      return false;
+    }
+    store.set('station', station.id);
+    setStationParam(station.id);
+    state.history = store.get(`history:${station.id}`, []);
+    renderHistory();
+    clearNow();
+    updateMediaSession();
+    if (resume) play();
+    pollNow();
+    return true;
+  }
 
   // ---------- Now playing ----------
   let nowTimer = null;
   async function pollNow() {
     clearTimeout(nowTimer);
-    try {
-      const res = await fetch('/api/now', { cache: 'no-store' });
-      if (!res.ok) throw new Error('now ' + res.status);
-      applyNow(await res.json());
-    } catch (err) {
-      console.warn('now-playing unavailable', err);
+    const station = state.station;
+    if (station) {
+      try {
+        const res = await fetch(`/api/now?station=${encodeURIComponent(station.id)}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('now ' + res.status);
+        const now = await res.json();
+        if (state.station === station) applyNow(now);
+      } catch (err) {
+        console.warn('now-playing unavailable', err);
+      }
     }
     const interval = document.hidden ? 60000 : state.wanted ? 10000 : 30000;
     nowTimer = setTimeout(pollNow, interval);
@@ -316,7 +477,9 @@
       el.show.append(b, document.createTextNode(' on air'));
     }
     if (now.show) el.show.append(document.createTextNode((now.dj ? ' · ' : '') + now.show));
+    if (!now.dj && !now.show && now.album) el.show.textContent = now.album;
     el.listeners.textContent = now.listeners != null ? `${now.listeners} listening` : '';
+    if (!state.history.length && Array.isArray(now.history) && now.history.length) seedHistory(now.history);
     if (changed) {
       if (now.song) addHistory(now);
       updateMediaSession();
@@ -329,7 +492,14 @@
     if (last && last.raw === now.raw) return;
     state.history.unshift({ raw: now.raw, artist: now.artist, song: now.song, at: Date.now() });
     state.history = state.history.slice(0, 100);
-    store.set('history', state.history);
+    store.set(`history:${state.station.id}`, state.history);
+    renderHistory();
+  }
+
+  // The station's own recent-tracks list, used when this browser has heard nothing here yet.
+  function seedHistory(list) {
+    state.history = list.map((h) => ({ raw: h.artist ? `${h.artist} - ${h.song}` : h.song, artist: h.artist, song: h.song, at: h.at || Date.now() }));
+    store.set(`history:${state.station.id}`, state.history);
     renderHistory();
   }
 
@@ -356,10 +526,9 @@
   }
   el.clearHistory.addEventListener('click', () => {
     state.history = [];
-    store.set('history', []);
+    store.set(`history:${state.station.id}`, []);
     renderHistory();
   });
-  renderHistory();
 
   // ---------- Media Session (OS media keys, lock screen) ----------
   // Chrome for Android picks 512x512 artwork (256x256 on low-end phones) and wants PNG; an SVG
@@ -371,11 +540,12 @@
     if (!('mediaSession' in navigator)) return;
     const now = state.now || {};
     try {
+      const logo = state.station && /^https?:/.test(state.station.logo) ? [{ src: state.station.logo, sizes: '256x256', type: 'image/png' }] : ARTWORK;
       navigator.mediaSession.metadata = new MediaMetadata({
         title: now.song || el.stationName.textContent,
         artist: now.artist || (now.dj ? `${now.dj} on air` : ''),
         album: el.stationName.textContent,
-        artwork: ARTWORK,
+        artwork: logo,
       });
       navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
     } catch { /* ignore */ }
@@ -609,6 +779,10 @@
       case 'ArrowDown': e.preventDefault(); setVolume(Number(el.volume.value) - 5); break;
       case 't': cycleTheme(); break;
       case 'v': el.vizToggle.click(); break;
+      case '[': stepStation(-1); break;
+      case ']': stepStation(1); break;
+      case '/': e.preventDefault(); openStations(); break;
+      case 'Escape': closeStations(); break;
       default: return;
     }
   });
@@ -618,14 +792,17 @@
   // ---------- Boot ----------
   (async () => {
     try {
-      await loadStreams();
+      await loadStations();
     } catch (err) {
       setStatus('error', 'Server unreachable');
-      el.song.textContent = 'Could not load the stream list';
+      el.song.textContent = err.message === 'No station list' ? 'No station list' : 'Could not load the station list';
       console.error(err);
       return;
     }
-    pollNow();
+    if (!(await selectStation(pickInitialStation(), { initial: true }))) {
+      setStatus('error', 'Station unreachable');
+      return;
+    }
     if (store.get('wasPlaying', false)) play(); // may be blocked by autoplay rules; then we show "Tap play"
   })();
 })();
