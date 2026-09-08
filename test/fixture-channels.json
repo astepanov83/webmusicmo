@@ -1,0 +1,59 @@
+{"channels": [
+  {
+    "id": "7soul",
+    "title": "Seven Inch Soul",
+    "description": "Vintage soul tracks from the original 45 RPM vinyl.",
+    "dj": "Dion Watts Garcia",
+    "djmail": "dion@somafm.com",
+    "genre": "oldies",
+    "image": "https://api.somafm.com/logos/120/7soul120.png?v=1674955401",
+    "largeimage": "https://api.somafm.com/logos/256/7soul256.png?v=1396144572",
+    "xlimage": "https://api.somafm.com/logos/512/7soul512.png?v=1396144489",
+    "twitter": "",
+    "updated": "1674955401",
+    "playlists": [
+      { "url": "https://api.somafm.com/7soul.pls", "format": "mp3",  "quality": "highest" },
+      { "url": "https://api.somafm.com/7soul130.pls", "format": "aac",  "quality": "highest" },
+      { "url": "https://api.somafm.com/7soul64.pls", "format": "aacp",  "quality": "high" },
+      { "url": "https://api.somafm.com/7soul32.pls", "format": "aacp",  "quality": "low" }
+    ],
+    "preroll": [],
+    "listeners": "74",
+    "lastPlaying": "Sons of Slum - Music Is Message"
+  },
+  {
+    "id": "groovesalad",
+    "title": "Groove Salad",
+    "description": "A nicely chilled plate of ambient/downtempo beats and grooves.",
+    "dj": "Rusty Hodge",
+    "djmail": "rusty@somafm.com",
+    "genre": "ambient|electronic",
+    "image": "https://api.somafm.com/logos/120/groovesalad120.png?v=1",
+    "largeimage": "https://api.somafm.com/logos/256/groovesalad256.png?v=2",
+    "xlimage": "https://api.somafm.com/logos/512/groovesalad512.png?v=3",
+    "twitter": "",
+    "updated": "1",
+    "playlists": [
+      { "url": "https://api.somafm.com/groovesalad256.pls", "format": "mp3",  "quality": "highest" },
+      { "url": "https://api.somafm.com/groovesalad130.pls", "format": "aac",  "quality": "highest" },
+      { "url": "https://api.somafm.com/groovesalad64.pls", "format": "aacp",  "quality": "high" },
+      { "url": "https://api.somafm.com/groovesalad32.pls", "format": "aacp",  "quality": "low" }
+    ],
+    "preroll": [],
+    "listeners": "900",
+    "lastPlaying": "Nod Flenders - Vincent's Echo Ride"
+  },
+  {
+    "id": "empty",
+    "title": "No Streams",
+    "description": "",
+    "dj": "",
+    "genre": "",
+    "image": "",
+    "largeimage": "",
+    "xlimage": "",
+    "playlists": [],
+    "listeners": "0",
+    "lastPlaying": ""
+  }
+]}
