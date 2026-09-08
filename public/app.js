@@ -41,6 +41,7 @@
   const state = {
     stations: [],
     station: null,          // chosen station object
+    applied: null,          // the station whose data is on the page right now
     streams: [],
     fallbacks: [],
     current: null,          // chosen stream object
@@ -408,13 +409,14 @@
     state.current = state.streams.find((s) => s.mount === savedMount) || state.streams.find((s) => s.primary) || state.streams[0];
     el.quality.value = state.current.mount;
     el.bitrate.textContent = label(state.current);
+    state.applied = station;
   }
 
   el.quality.addEventListener('change', () => {
     const s = state.streams.find((x) => x.mount === el.quality.value);
     if (!s) return;
     state.current = s;
-    store.set(`mount:${state.station.id}`, s.mount);
+    store.set(`mount:${state.applied.id}`, s.mount);
     el.bitrate.textContent = label(s);
     if (state.wanted) play();
   });
@@ -431,8 +433,9 @@
   // the page is booting: nothing is playing yet, so no play() and no "same station" shortcut.
   async function selectStation(station, { initial = false } = {}) {
     if (!station) return false;
-    if (!initial && state.station && station.id === state.station.id) return true;
-    const previous = state.station;
+    // Compare against what is actually on the page, not merely what was last clicked,
+    // so a station whose load failed can always be retried.
+    if (!initial && state.applied && station.id === state.applied.id) return true;
     const resume = state.wanted;
     state.station = station;
     markCurrentStation();
@@ -441,9 +444,10 @@
       data = await fetchStreams(station);
     } catch (err) {
       console.warn('station unreachable', err);
-      // Only undo the choice if the user has not since picked something else.
+      // Only undo the choice if the user has not since picked something else, and fall
+      // back to the station the page is really showing rather than one that never loaded.
       if (state.station === station) {
-        state.station = previous;
+        state.station = state.applied;
         markCurrentStation();
         toast('Station unreachable');
       }
