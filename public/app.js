@@ -29,14 +29,18 @@
   };
 
   // Version 1 kept one history and one quality. They belong to Metal Only now.
-  if (store.get('history', null) !== null) {
-    store.set('history:metal-only', store.get('history', []));
-    localStorage.removeItem('webplayer:history');
+  // store.set() swallows every failure (quota, storage unavailable), so read the new key
+  // back before deleting the old one: only drop the old key once the new value is
+  // confirmed on disk, or a failed write plus the delete would just lose the data.
+  function migrateKey(oldKey, newKey) {
+    if (store.get(oldKey, null) === null) return;
+    store.set(newKey, store.get(oldKey, null));
+    const MISSING = {};
+    if (store.get(newKey, MISSING) === MISSING) return;
+    localStorage.removeItem('webplayer:' + oldKey);
   }
-  if (store.get('mount', null) !== null) {
-    store.set('mount:metal-only', store.get('mount', null));
-    localStorage.removeItem('webplayer:mount');
-  }
+  migrateKey('history', 'history:metal-only');
+  migrateKey('mount', 'mount:metal-only');
 
   const state = {
     stations: [],
@@ -337,8 +341,14 @@
 
   function markCurrentStation() {
     for (const btn of el.stationList.querySelectorAll('.station-row')) {
-      if (state.station && btn.dataset.id === state.station.id) btn.setAttribute('aria-current', 'true');
-      else btn.removeAttribute('aria-current');
+      if (state.station && btn.dataset.id === state.station.id) {
+        btn.setAttribute('aria-current', 'true');
+        // 'nearest' only scrolls if the row is actually out of view, so stepping
+        // through nearby stations does not jump the list around.
+        btn.scrollIntoView({ block: 'nearest' });
+      } else {
+        btn.removeAttribute('aria-current');
+      }
     }
   }
 

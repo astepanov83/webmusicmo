@@ -158,6 +158,26 @@ test('GET /api/stations answers 503 when the file is missing', async () => {
   });
 });
 
+test('createApp logs through the injectable log option when a good file later turns bad', async () => {
+  const file = stationsFile();
+  const logs = [];
+  await withServer({ ...baseOpts, stationsFile: file, checkMs: 0, log: (msg) => logs.push(msg) }, async (base) => {
+    // Still good: served from the freshly loaded file, nothing logged yet.
+    assert.equal((await fetch(base + '/api/stations')).status, 200);
+    assert.equal(logs.length, 0);
+
+    fs.writeFileSync(file, '{not json');
+    const later = new Date(Date.now() + 5000);
+    fs.utimesSync(file, later, later);
+
+    // The store notices the mtime change, fails to parse, keeps the last good list and logs it.
+    const res = await fetch(base + '/api/stations');
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).stations.length, 4);
+    assert.ok(logs.some((m) => /keeping the last good list/.test(m)), logs.join('\n'));
+  });
+});
+
 test('GET /api/streams (default station) resolves the redirect, merges status mounts, https first', async () => {
   await withServer(baseOpts, async (base) => {
     const res = await fetch(base + '/api/streams');
@@ -293,6 +313,13 @@ test('static handler refuses path traversal, unknown files and bad escapes', asy
     assert.equal((await fetch(base + '/nothing-here.js')).status, 404);
     assert.equal((await fetch(base + '/%')).status, 400);
     assert.equal((await fetch(base + '/%E0%A4%A')).status, 400);
+    // The browser normalises a literal ".." away before the request is sent, so it never
+    // reaches the server's own guard. A percent-encoded traversal survives to decodeURIComponent
+    // and actually exercises it.
+    assert.equal((await fetch(base + '/%2e%2e/package.json')).status, 404);
+    // decodeURIComponent('/%00') succeeds and gives a null byte, which crashes fs.stat
+    // synchronously if it is not rejected first.
+    assert.equal((await fetch(base + '/%00')).status, 400);
     // The server must still be alive afterwards.
     assert.equal((await fetch(base + '/api/health')).status, 200);
   });
