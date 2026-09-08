@@ -1,0 +1,11 @@
+# Refresh the station list daily, and shortly after boot if a run was missed.
+[Unit]
+Description=Daily refresh of the webmusicmo station list
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
