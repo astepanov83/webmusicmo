@@ -1,13 +1,14 @@
 {
   "name": "webmusicmo",
-  "version": "1.0.0",
-  "description": "A small dark-mode web player for the METAL ONLY stream",
+  "version": "2.0.0",
+  "description": "A small dark-mode web player for internet radio: Metal Only and the SomaFM channels",
   "type": "module",
   "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "refresh": "node scripts/refresh.js"
   },
   "engines": {
     "node": ">=20"
