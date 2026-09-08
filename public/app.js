@@ -468,23 +468,27 @@
   }
 
   // ---------- Now playing ----------
+  // Polls for the applied station: the one whose data is actually on the page, not merely
+  // the one last clicked. Polling state.station instead would, during a switch, apply the
+  // new track onto the array still belonging to the old station and save it under the new
+  // station's key, permanently mixing one station's history into another's.
   let nowTimer = null;
   async function pollNow() {
     clearTimeout(nowTimer);
-    const station = state.station;
+    const station = state.applied;
     if (station) {
       try {
         const res = await fetch(`/api/now?station=${encodeURIComponent(station.id)}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('now ' + res.status);
         const now = await res.json();
-        if (state.station === station) applyNow(now);
+        if (state.applied === station) applyNow(now);
       } catch (err) {
         console.warn('now-playing unavailable', err);
       }
     }
-    // Only the poll that still matches the chosen station owns the next tick, so a
+    // Only the poll that still matches the applied station owns the next tick, so a
     // stale call cannot leave a second timer running.
-    if (state.station === station) {
+    if (state.applied === station) {
       const interval = document.hidden ? 60000 : state.wanted ? 10000 : 30000;
       nowTimer = setTimeout(pollNow, interval);
     }
@@ -518,15 +522,15 @@
     if (last && last.raw === now.raw) return;
     state.history.unshift({ raw: now.raw, artist: now.artist, song: now.song, at: Date.now() });
     state.history = state.history.slice(0, 100);
-    store.set(`history:${state.station.id}`, state.history);
+    store.set(`history:${state.applied.id}`, state.history);
     renderHistory();
   }
 
   // The station's own recent-tracks list, used when this browser has heard nothing here yet.
   function seedHistory(list) {
-    if (!state.station) return;
+    if (!state.applied) return;
     state.history = list.map((h) => ({ raw: h.artist ? `${h.artist} - ${h.song}` : h.song, artist: h.artist, song: h.song, at: h.at || Date.now() }));
-    store.set(`history:${state.station.id}`, state.history);
+    store.set(`history:${state.applied.id}`, state.history);
     renderHistory();
   }
 
@@ -552,9 +556,9 @@
     }
   }
   el.clearHistory.addEventListener('click', () => {
-    if (!state.station) return;
+    if (!state.applied) return;
     state.history = [];
-    store.set(`history:${state.station.id}`, []);
+    store.set(`history:${state.applied.id}`, []);
     renderHistory();
   });
 
@@ -568,7 +572,7 @@
     if (!('mediaSession' in navigator)) return;
     const now = state.now || {};
     try {
-      const logo = state.station && /^https?:/.test(state.station.logo) ? [{ src: state.station.logo, sizes: '256x256', type: 'image/png' }] : ARTWORK;
+      const logo = state.applied && /^https?:/.test(state.applied.logo) ? [{ src: state.applied.logo, sizes: '256x256', type: 'image/png' }] : ARTWORK;
       navigator.mediaSession.metadata = new MediaMetadata({
         title: now.song || el.stationName.textContent,
         artist: now.artist || (now.dj ? `${now.dj} on air` : ''),
