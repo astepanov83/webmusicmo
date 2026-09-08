@@ -1,0 +1,18 @@
+{
+  "stations": [
+    {
+      "id": "metal-only",
+      "name": "Metal Only",
+      "description": "Metal, 24 hours a day, with live shows by real DJs. metal-only.de",
+      "genre": "metal",
+      "dj": "",
+      "site": "https://www.metal-only.de",
+      "logo": "/icon-256.png",
+      "source": "local",
+      "playlists": [
+        { "url": "https://metal-only.streampanel.cloud/listen.pls", "format": "mp3", "quality": "highest" }
+      ],
+      "nowPlaying": { "kind": "icecast" }
+    }
+  ]
+}
