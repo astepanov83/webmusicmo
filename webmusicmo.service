@@ -1,7 +1,7 @@
 # systemd user unit for the web player.
 # Installed by scripts/install-service.sh into ~/.config/systemd/user/.
 [Unit]
-Description=Metal Only web player
+Description=webmusicmo radio player
 After=network-online.target
 Wants=network-online.target
 
@@ -11,7 +11,6 @@ Type=simple
 WorkingDirectory=__DIR__
 Environment=PORT=__PORT__
 Environment=HOST=127.0.0.1
-Environment=PLS_URL=https://metal-only.streampanel.cloud/listen.pls
 ExecStart=__NODE__ server.js
 Restart=on-failure
 RestartSec=3
