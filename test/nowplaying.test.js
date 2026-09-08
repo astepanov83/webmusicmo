@@ -66,6 +66,20 @@ test('parseStatus reads ice-bitrate and audio_info bitrates and sums listeners',
   assert.equal(s.now.song, 'B');
 });
 
+test('parseStatus drops a non-http(s) server_url', () => {
+  const s = parseStatus({ icestats: { source: [
+    { listenurl: 'http://h/a', server_url: 'javascript:alert(1)' },
+  ] } });
+  assert.equal(s.stationUrl, '');
+});
+
+test('parseStatus keeps a normal https server_url', () => {
+  const s = parseStatus({ icestats: { source: [
+    { listenurl: 'http://h/a', server_url: 'https://station.example/' },
+  ] } });
+  assert.equal(s.stationUrl, 'https://station.example/');
+});
+
 test('parseStatus accepts a single source object and missing fields', () => {
   const s = parseStatus({ icestats: { source: { listenurl: 'http://h/s', title: 'X - Y' } } });
   assert.equal(s.now.song, 'Y');
