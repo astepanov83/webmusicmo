@@ -1,6 +1,6 @@
 #!/bin/sh
 # Refresh the station list once a day in the background, then run the server.
-# REFRESH_HOURS=0 turns the loop off.
+# REFRESH_HOURS=0 (or any other all-zero value) turns the loop off.
 set -e
 hours="${REFRESH_HOURS:-24}"
 # A bad value must not quietly stop the refresh for the life of the container, so fall
@@ -11,7 +11,7 @@ case "$hours" in
     hours=24
     ;;
 esac
-if [ "$hours" != "0" ]; then
+if [ "$hours" -gt 0 ]; then
   (
     while true; do
       node scripts/refresh.js || echo "refresh failed"
