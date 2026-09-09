@@ -85,7 +85,13 @@
   let audioCtx = null;
   let analyser = null;
   let vizOn = store.get('viz', true);
-  el.vizToggle.setAttribute('aria-pressed', String(vizOn));
+  // The page needs to know as well as the drawing code: with no ring around it, the play
+  // button has nothing to step back for, so the stylesheet keeps it at full strength.
+  function markViz() {
+    el.vizToggle.setAttribute('aria-pressed', String(vizOn));
+    el.player.classList.toggle('viz-off', !vizOn);
+  }
+  markViz();
 
   // ?debug=1 exposes the player internals (read-only) so they can be driven from the console or a test.
   if (new URLSearchParams(location.search).has('debug')) {
@@ -139,7 +145,7 @@
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     setStatus('busy', 'Connecting');
     el.player.classList.add('playing');
-    el.playBtn.setAttribute('aria-label', 'Stop');
+    el.playBtn.setAttribute('aria-label', 'Pause');
     audio.src = streamUrl(state.current);
     audio.load();
     audio.play().catch((err) => {
@@ -902,7 +908,7 @@
   el.vizToggle.addEventListener('click', () => {
     vizOn = !vizOn;
     store.set('viz', vizOn);
-    el.vizToggle.setAttribute('aria-pressed', String(vizOn));
+    markViz();
     if (vizOn && state.wanted) { ensureAudioGraph(); drawViz(); } else clearViz();
   });
 

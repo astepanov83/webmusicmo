@@ -232,20 +232,21 @@ svg { width: 22px; height: 22px; display: block; }
   transition: transform 0.15s, background 0.2s;
 }
 .play:hover { transform: scale(1.04); background: var(--accent-2); }
-/* While playing the button steps aside for the visualizer and only shows on hover or focus. */
-.player.playing .play { opacity: 0; transform: scale(0.9); pointer-events: none; transition: opacity 0.25s, transform 0.25s, background 0.2s; }
-.player.playing .stage:hover .play,
-.player.playing .play:focus-visible { opacity: 1; transform: scale(1); pointer-events: auto; }
-.player.playing .stage:hover .play:hover { transform: scale(1.04); }
+/* While the ring is live the button steps back and returns on hover. It only fades, so it
+   stays a real click target the whole time instead of only once the stage sees the mouse.
+   With the visualizer off there is nothing to step back for, so it stays at full strength. */
+.player:not(.viz-off).playing .play { opacity: 0.12; transition: transform 0.15s, background 0.2s, opacity 0.25s; }
+.player:not(.viz-off).playing .stage:hover .play,
+.player:not(.viz-off).playing .play:focus-visible { opacity: 1; }
 @media (hover: none) {
-  .player.playing .play { opacity: 1; transform: none; pointer-events: auto; }
+  .player.playing .play { opacity: 1; }
 }
 .play:active { transform: scale(0.97); }
 .play svg { width: 44px; height: 44px; }
 .play .ic-play { margin-left: 5px; }
-.play .ic-stop, .play .spinner { display: none; }
+.play .ic-pause, .play .spinner { display: none; }
 .player.playing .play .ic-play { display: none; }
-.player.playing .play .ic-stop { display: block; }
+.player.playing .play .ic-pause { display: block; }
 .player.busy .play .spinner {
   display: block; position: absolute; inset: -6px;
   border-radius: 50%; border: 3px solid transparent;

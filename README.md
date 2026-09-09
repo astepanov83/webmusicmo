@@ -140,7 +140,12 @@ out URLs and metadata.
   follow the same order, so favourites come first there too. Kept in the
   browser, per browser, so nothing on the server changes. With nothing
   starred the list looks the same as before.
-- Play / stop that always rejoins the live edge.
+- Play / pause that always rejoins the live edge. The button shows a pause
+  icon, but a live stream cannot really pause: pressing it drops the
+  connection, and pressing play opens a fresh one at the live edge.
+- While the visualizer is running the play button fades back to let the ring
+  show, and comes back on hover or keyboard focus. It stays clickable the
+  whole time. With the visualizer off (`v`) it stays at full strength.
 - Volume with a perceptual curve, mute, both remembered.
 - Quality picker: whatever qualities the chosen station advertises, highest
   first. Remembered per station.
@@ -167,7 +172,7 @@ out URLs and metadata.
 - `?debug=1` exposes `window.__player` (audio element, state, AudioContext)
   for testing.
 - Theme toggle: dark, light, or follow the system (`t`).
-- Keyboard: `Space` play/stop, `M` mute, arrows for volume, `[` `]` step
+- Keyboard: `Space` play/pause, `M` mute, arrows for volume, `[` `]` step
   stations, `/` filter stations, `F` favourite the current station.
 
 ## Docker
