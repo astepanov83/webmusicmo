@@ -1,5 +1,5 @@
 {
- "fetchedAt": 1788900555370,
+ "fetchedAt": 1788933968588,
  "stations": [
   {
    "id": "metal-only",
@@ -8,7 +8,7 @@
    "genre": "metal",
    "dj": "",
    "site": "https://www.metal-only.de",
-   "logo": "/icon-256.png",
+   "logo": "/metal-only-128.png",
    "source": "local",
    "playlists": [
     {
