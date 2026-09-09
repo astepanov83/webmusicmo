@@ -52,6 +52,11 @@ const STATIONS = {
       nowPlaying: { kind: 'icecast' },
     },
     {
+      id: 'ipstation', name: 'IP Station', description: '', genre: '', dj: '', site: '', logo: '', source: 'local',
+      playlists: [{ url: 'http://ip.example/listen.pls', format: 'mp3', quality: 'highest' }],
+      nowPlaying: { kind: 'icecast' },
+    },
+    {
       id: 'noprobe', name: 'No Probe', description: '', genre: '', dj: '', site: '', logo: '', source: 'local',
       playlists: [{ url: 'http://noprobe.example/listen.pls', format: 'mp3', quality: 'highest' }],
       nowPlaying: { kind: 'icecast' },
@@ -72,6 +77,7 @@ const STATUS_NOBITRATE = {
   },
 };
 
+// IP Station: its playlist points straight at an IP literal, which must stay on http.
 // Map of url -> string | object | { redirectTo, headers } for HEAD probes.
 function fakeFetch(map, calls = []) {
   return async (url, opts = {}) => {
@@ -106,6 +112,7 @@ const NET = {
   'http://fbworking.example/listen.pls': FB_PLS,
   'https://fbreal.example/stream': { headers: { 'icy-br': '128', 'content-type': 'audio/mpeg' } },
   'http://noprobe.example/listen.pls': PLS_NOPROBE,
+  'http://ip.example/listen.pls': '[playlist]\nFile1=http://10.0.0.1/stream\n',
   'https://real-noprobe.example/status-json.xsl': STATUS_NOBITRATE,
 };
 
@@ -173,7 +180,7 @@ test('createApp logs through the injectable log option when a good file later tu
     // The store notices the mtime change, fails to parse, keeps the last good list and logs it.
     const res = await fetch(base + '/api/stations');
     assert.equal(res.status, 200);
-    assert.equal((await res.json()).stations.length, 4);
+    assert.equal((await res.json()).stations.length, STATIONS.stations.length);
     assert.ok(logs.some((m) => /keeping the last good list/.test(m)), logs.join('\n'));
   });
 });
@@ -191,8 +198,7 @@ test('GET /api/streams (default station) resolves the redirect, merges status mo
       { url: 'https://real.example/stream320', mount: 'stream320', bitrate: 320, type: 'audio/aac', primary: false, format: '' },
       { url: 'https://real.example/stream64', mount: 'stream64', bitrate: 64, type: 'audio/aac', primary: false, format: '' },
     ]);
-    // IP literal hosts stay on http: an https certificate will not match an IP.
-    assert.deepEqual(body.fallbacks, ['http://10.0.0.1/stream']);
+    assert.equal(body.fallbacks, undefined);
   });
 });
 
@@ -206,7 +212,6 @@ test('GET /api/streams?station=gs reads every playlist and skips a broken one', 
       { url: 'https://ice2.example/gs-128-aac', mount: 'gs-128-aac', bitrate: 128, type: 'audio/aac', primary: false, format: 'aac' },
       { url: 'https://ice2.example/gs-64-aac', mount: 'gs-64-aac', bitrate: 64, type: 'audio/aacp', primary: false, format: 'aacp' },
     ]);
-    assert.deepEqual(body.fallbacks, ['https://ice6.example/gs-256-mp3']);
   });
 });
 
@@ -286,6 +291,13 @@ test('GET /api/now reports 502 when the station is unreachable', async () => {
   });
 });
 
+test('GET /api/streams leaves an IP literal host on http, since an https certificate cannot match an IP', async () => {
+  await withServer(baseOpts, async (base) => {
+    const body = await (await fetch(base + '/api/streams?station=ipstation')).json();
+    assert.equal(body.streams[0].url, 'http://10.0.0.1/stream');
+  });
+});
+
 test('GET /api/streams reports plsUrl for the playlist that actually resolved, not the first configured one', async () => {
   await withServer(baseOpts, async (base) => {
     const body = await (await fetch(base + '/api/streams?station=fbstation')).json();
@@ -293,7 +305,6 @@ test('GET /api/streams reports plsUrl for the playlist that actually resolved, n
     assert.deepEqual(body.streams, [
       { url: 'https://fbreal.example/stream', mount: 'stream', bitrate: 128, type: 'audio/mpeg', primary: true, format: 'aac' },
     ]);
-    assert.deepEqual(body.fallbacks, ['https://fbfallback.example/stream']);
   });
 });
 

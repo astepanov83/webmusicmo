@@ -47,10 +47,9 @@
     station: null,          // chosen station object
     applied: null,          // the station whose data is on the page right now
     streams: [],
-    fallbacks: [],
     current: null,          // chosen stream object
     wanted: false,          // user wants audio playing
-    retries: 0,
+    switching: false,       // a station switch is in flight
     retryTimer: null,
     startedAt: 0,
     now: null,              // last now-playing object
@@ -160,7 +159,6 @@
   // from here; the next play() rejoins the live edge with a fresh connection.
   function pause(statusText = 'Paused') {
     state.wanted = false;
-    state.retries = 0;
     clearTimeout(state.retryTimer);
     clearTimeout(stallTimer);
     if (!audio.paused) audio.pause();
@@ -174,7 +172,6 @@
 
   function stop(statusText = 'Stopped') {
     state.wanted = false;
-    state.retries = 0;
     clearTimeout(state.retryTimer);
     audio.pause();
     audio.removeAttribute('src');
@@ -188,25 +185,20 @@
     updateMediaSession();
   }
 
+  // One fixed wait, and always the same endpoint. A stream that drops is usually back within
+  // seconds, so there is nothing to win by backing off. The status text says "Reconnecting"
+  // with no number in it: a number that never moves reads as a hang.
+  const RETRY_MS = 5000;
+
   function scheduleRetry(err) {
-    if (!state.wanted) return;
-    state.retries += 1;
-    // After a few failures on the chosen stream, rotate through the fallback hosts.
-    if (state.retries % 3 === 0 && state.fallbacks.length) {
-      const next = state.fallbacks.shift();
-      state.fallbacks.push(state.current.url);
-      state.current = { ...state.current, url: next };
-      toast('Switching to backup server');
-    }
-    const delay = Math.min(30000, 1000 * 2 ** Math.min(state.retries - 1, 5));
-    setStatus('error', `Reconnecting in ${Math.round(delay / 1000)}s`);
+    if (!state.wanted || state.switching) return;
+    setStatus('error', 'Reconnecting');
     console.warn('stream problem, retrying', err);
     clearTimeout(state.retryTimer);
-    state.retryTimer = setTimeout(() => state.wanted && play(), delay);
+    state.retryTimer = setTimeout(() => state.wanted && play(), RETRY_MS);
   }
 
   audio.addEventListener('playing', () => {
-    state.retries = 0;
     if (!state.startedAt) state.startedAt = Date.now();
     setStatus('live', 'Live');
     updateMediaSession();
@@ -237,7 +229,7 @@
   // play button, the keyboard, the lock-screen play action, or the browser handing the audio back
   // after the call (that arrives as a 'play' event, handled below). Every resume reconnects fresh.
   audio.addEventListener('pause', () => {
-    if (!state.wanted) { updateMediaSession(); return; } // our own stop() or pause()
+    if (!state.wanted || state.switching) { updateMediaSession(); return; } // our own stop(), pause() or station swap
     if (audio.ended || audio.error) return;               // 'ended' and 'error' reconnect on their own
     pause();
   });
@@ -400,7 +392,6 @@
 
   function applyStreams(station, data) {
     state.streams = data.streams;
-    state.fallbacks = data.fallbacks || [];
     el.stationName.textContent = station.name;
     document.title = station.name;
     el.stationLink.href = data.stationUrl || station.site || '#';
@@ -439,6 +430,35 @@
     el.listeners.textContent = '';
   }
 
+  // The page while a station's streams are on their way. Fetching them takes a moment, and
+  // without this the old station's name, track and history stay up for the whole wait. The
+  // only thing that did change, the highlight in the list, is behind a closed panel on a phone.
+  function showLoading(station) {
+    el.stationName.textContent = station.name;
+    document.title = station.name;
+    setStatus('busy', 'Loading');
+    el.song.textContent = 'Loading';
+    el.artist.innerHTML = '&nbsp;';
+    el.show.innerHTML = '';
+    el.listeners.textContent = '';
+    el.bitrate.textContent = '';
+    // Clear the rendered list, not state.history: a now-playing reply for the station we are
+    // leaving can still land, and applyNow would append to the emptied array and save that
+    // over the old station's real history.
+    el.historyList.innerHTML = '';
+  }
+
+  // Put a station that is already loaded back on the page. Used when a switch fails and the
+  // page has to return to the station it is really playing.
+  function showStation(station) {
+    el.stationName.textContent = station.name;
+    document.title = station.name;
+    el.bitrate.textContent = state.current ? label(state.current) : '';
+    state.history = store.get(`history:${station.id}`, []);
+    renderHistory();
+    clearNow();
+  }
+
   // Switch to a station. Returns true when its streams could be loaded. With `initial`
   // the page is booting: nothing is playing yet, so no play() and no "same station" shortcut.
   async function selectStation(station, { initial = false } = {}) {
@@ -447,8 +467,22 @@
     // so a station whose load failed can always be retried.
     if (!initial && state.applied && station.id === state.applied.id) return true;
     const resume = state.wanted;
+    const previous = state.applied;
     state.station = station;
+    state.switching = true;
     markCurrentStation();
+    showLoading(station);
+    // Cut the old station's sound now instead of when the new stream is ready: hearing one
+    // station while reading another's name is worse than a moment of silence. state.wanted
+    // stays true so a second click still knows the user wants audio; state.switching is what
+    // tells the audio event handlers that this pause is ours and needs no retry.
+    if (resume) {
+      clearTimeout(state.retryTimer);
+      clearTimeout(stallTimer);
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    }
     let data;
     try {
       data = await fetchStreams(station);
@@ -457,14 +491,26 @@
       // Only undo the choice if the user has not since picked something else, and fall
       // back to the station the page is really showing rather than one that never loaded.
       if (state.station === station) {
-        state.station = state.applied;
+        state.switching = false;
+        state.station = previous;
         markCurrentStation();
         toast('Station unreachable');
+        if (previous) {
+          // applyStreams never ran, so state.current is still the previous station's stream.
+          showStation(previous);
+          if (resume) play(); else setStatus('', 'Stopped');
+          pollNow();
+        } else {
+          setStatus('error', 'Station unreachable');
+          el.song.textContent = 'Station unreachable';
+        }
       }
       return false;
     }
-    // A reply for a station the user has already left changes nothing.
+    // A reply for a station the user has already left changes nothing. The newer call owns
+    // state.switching, so leave it alone here.
     if (state.station !== station) return false;
+    state.switching = false;
     applyStreams(station, data);
     store.set('station', station.id);
     setStationParam(station.id);
@@ -472,7 +518,10 @@
     renderHistory();
     clearNow();
     updateMediaSession();
-    if (resume) play();
+    if (resume) play(); else setStatus('', 'Stopped');
+    // Stepping stations with [ and ] never opens the panel, so the toast is the only
+    // confirmation that the click landed on the station the user meant.
+    if (!initial) toast(station.name);
     pollNow();
     return true;
   }
@@ -491,7 +540,7 @@
         const res = await fetch(`/api/now?station=${encodeURIComponent(station.id)}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('now ' + res.status);
         const now = await res.json();
-        if (state.applied === station) applyNow(now);
+        if (state.applied === station && !state.switching) applyNow(now);
       } catch (err) {
         console.warn('now-playing unavailable', err);
       }
