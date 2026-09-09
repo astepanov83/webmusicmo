@@ -44,6 +44,7 @@
 
   const state = {
     stations: [],
+    favourites: new Set(),  // station ids the user starred
     station: null,          // chosen station object
     applied: null,          // the station whose data is on the page right now
     streams: [],
@@ -285,44 +286,104 @@
     return (s.genre || '').split('|').filter(Boolean).join(' · ');
   }
 
+  // ---------- Favourites ----------
+  // Only ids are stored. An id for a station that is no longer in the list is kept, not
+  // dropped: SomaFM retires a channel and brings it back, and the star should survive that.
+  state.favourites = new Set(store.get('favourites', []));
+
+  function isFavourite(station) {
+    return !!station && state.favourites.has(station.id);
+  }
+
+  function toggleFavourite(station) {
+    if (!station) return;
+    if (state.favourites.has(station.id)) {
+      state.favourites.delete(station.id);
+      toast('Removed from favourites');
+    } else {
+      state.favourites.add(station.id);
+      toast('Added to favourites');
+    }
+    store.set('favourites', [...state.favourites]);
+    renderStations();
+  }
+
+  // Favourites first, then the rest, each group keeping the order of the station list.
+  // Starring a station moves it to the top; it does not shuffle the rows around it.
+  function orderedStations() {
+    const fav = state.stations.filter(isFavourite);
+    const rest = state.stations.filter((s) => !isFavourite(s));
+    return { fav, rest, all: [...fav, ...rest] };
+  }
+
+  function stationRow(s) {
+    const li = document.createElement('li');
+    li.className = 'station-item';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'station-row';
+    btn.dataset.id = s.id;
+    btn.title = s.description || s.name;
+    if (state.station && s.id === state.station.id) btn.setAttribute('aria-current', 'true');
+    let logo;
+    if (s.logo) {
+      logo = document.createElement('img');
+      logo.className = 's-logo';
+      logo.src = s.logo;
+      logo.alt = '';
+      logo.loading = 'lazy';
+    } else {
+      logo = document.createElement('span');
+      logo.className = 's-logo s-initial';
+      logo.textContent = s.name.slice(0, 1).toUpperCase();
+    }
+    const text = document.createElement('span');
+    const name = document.createElement('span');
+    name.className = 's-name';
+    name.textContent = s.name;
+    const genre = document.createElement('span');
+    genre.className = 's-genre';
+    genre.textContent = genreText(s) || (s.dj ? s.dj : '');
+    text.append(name, genre);
+    text.style.display = 'grid';
+    btn.append(logo, text);
+    btn.addEventListener('click', () => { selectStation(s); closeStations(); });
+    // A sibling of the row, not a child: a button inside a button is invalid HTML and
+    // browsers drop it.
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'star';
+    star.dataset.id = s.id;
+    const on = isFavourite(s);
+    star.setAttribute('aria-pressed', String(on));
+    star.title = on ? 'Remove from favourites' : 'Add to favourites';
+    star.setAttribute('aria-label', star.title);
+    star.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></svg>';
+    star.addEventListener('click', () => toggleFavourite(s));
+    li.append(btn, star);
+    return li;
+  }
+
+  function groupHeading(label) {
+    const li = document.createElement('li');
+    li.className = 'station-group';
+    li.textContent = label;
+    return li;
+  }
+
   function renderStations() {
     const q = el.stationFilter.value.trim().toLowerCase();
+    const match = (s) => !q || `${s.name} ${s.genre} ${s.description}`.toLowerCase().includes(q);
+    const { fav, rest } = orderedStations();
+    const favShown = fav.filter(match);
+    const restShown = rest.filter(match);
     el.stationList.innerHTML = '';
-    for (const s of state.stations) {
-      if (q && !`${s.name} ${s.genre} ${s.description}`.toLowerCase().includes(q)) continue;
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'station-row';
-      btn.dataset.id = s.id;
-      btn.title = s.description || s.name;
-      if (state.station && s.id === state.station.id) btn.setAttribute('aria-current', 'true');
-      let logo;
-      if (s.logo) {
-        logo = document.createElement('img');
-        logo.className = 's-logo';
-        logo.src = s.logo;
-        logo.alt = '';
-        logo.loading = 'lazy';
-      } else {
-        logo = document.createElement('span');
-        logo.className = 's-logo s-initial';
-        logo.textContent = s.name.slice(0, 1).toUpperCase();
-      }
-      const text = document.createElement('span');
-      const name = document.createElement('span');
-      name.className = 's-name';
-      name.textContent = s.name;
-      const genre = document.createElement('span');
-      genre.className = 's-genre';
-      genre.textContent = genreText(s) || (s.dj ? s.dj : '');
-      text.append(name, genre);
-      text.style.display = 'grid';
-      btn.append(logo, text);
-      btn.addEventListener('click', () => { selectStation(s); closeStations(); });
-      li.appendChild(btn);
-      el.stationList.appendChild(li);
-    }
+    // With nothing starred the list looks exactly as it did before: no headings.
+    const headings = favShown.length > 0;
+    if (headings) el.stationList.appendChild(groupHeading('Favourites'));
+    for (const s of favShown) el.stationList.appendChild(stationRow(s));
+    if (headings && restShown.length) el.stationList.appendChild(groupHeading('All stations'));
+    for (const s of restShown) el.stationList.appendChild(stationRow(s));
     if (!el.stationList.childElementCount) {
       const li = document.createElement('li');
       li.className = 'stations-empty';
@@ -366,10 +427,12 @@
   const phoneQuery = window.matchMedia('(max-width: 700px)');
   phoneQuery.addEventListener('change', (e) => { if (!e.matches) closeStations(); });
 
+  // Steps in the order the list shows, so favourites come first here too.
   function stepStation(delta) {
-    if (!state.stations.length) return;
-    const i = state.stations.findIndex((s) => state.station && s.id === state.station.id);
-    const next = state.stations[(i + delta + state.stations.length) % state.stations.length];
+    const list = orderedStations().all;
+    if (!list.length) return;
+    const i = list.findIndex((s) => state.station && s.id === state.station.id);
+    const next = list[(i + delta + list.length) % list.length];
     selectStation(next);
   }
 
@@ -870,6 +933,7 @@
       case 'ArrowDown': e.preventDefault(); setVolume(Number(el.volume.value) - 5); break;
       case 't': cycleTheme(); break;
       case 'v': el.vizToggle.click(); break;
+      case 'f': toggleFavourite(state.station); break;
       case '[': stepStation(-1); break;
       case ']': stepStation(1); break;
       case '/': e.preventDefault(); openStations(); break;

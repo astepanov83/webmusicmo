@@ -135,6 +135,11 @@ out URLs and metadata.
 - Station list on the left, with a filter box. On a phone the list opens as
   a full-screen overlay from the station name in the header. `[` and `]`
   step through stations, `/` jumps to the filter.
+- Favourites: the star on a station row pins it to a "Favourites" group at
+  the top of the list, and `f` stars the station that is playing. `[` and `]`
+  follow the same order, so favourites come first there too. Kept in the
+  browser, per browser, so nothing on the server changes. With nothing
+  starred the list looks the same as before.
 - Play / stop that always rejoins the live edge.
 - Volume with a perceptual curve, mute, both remembered.
 - Quality picker: whatever qualities the chosen station advertises, highest
@@ -163,7 +168,7 @@ out URLs and metadata.
   for testing.
 - Theme toggle: dark, light, or follow the system (`t`).
 - Keyboard: `Space` play/stop, `M` mute, arrows for volume, `[` `]` step
-  stations, `/` filter stations.
+  stations, `/` filter stations, `F` favourite the current station.
 
 ## Docker
 

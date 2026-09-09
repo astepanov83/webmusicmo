@@ -134,6 +134,12 @@ svg { width: 22px; height: 22px; display: block; }
 }
 .station-filter:focus-visible { border-color: var(--accent); }
 .station-list { list-style: none; margin: 0; padding: 0 6px 0 0; flex: 1; min-height: 0; overflow: auto; }
+.station-item { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; }
+.station-group {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--fg-3); padding: 12px 8px 4px;
+}
+.station-group:first-child { padding-top: 4px; }
 .station-row {
   width: 100%; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; align-items: center;
   text-align: left; background: transparent; border: 0; border-radius: 10px; padding: 6px 8px;
@@ -147,6 +153,19 @@ svg { width: 22px; height: 22px; display: block; }
 .s-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .s-genre { font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stations-empty { color: var(--fg-3); font-size: 13px; padding: 8px; }
+/* An empty star would clutter 46 rows, so on a pointer device it only shows for the row
+   under the cursor or the keyboard focus. A filled one always shows. */
+.star {
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  background: transparent; border: 0; border-radius: 8px; cursor: pointer;
+  color: var(--fg-3); opacity: 0;
+}
+.star svg { width: 17px; height: 17px; }
+.star:hover { color: var(--fg); }
+.star:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.station-item:hover .star, .station-item:focus-within .star { opacity: 1; }
+.star[aria-pressed="true"] { opacity: 1; color: var(--accent); }
+.star[aria-pressed="true"] svg path { fill: currentColor; }
 
 /* Top bar */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -403,6 +422,11 @@ input[type="range"]::-moz-range-thumb {
   .station-filter { min-height: 44px; font-size: 15px; }
   .station-row { padding: 8px; min-height: 56px; grid-template-columns: 44px minmax(0, 1fr); }
   .s-logo { width: 44px; height: 44px; }
+  /* No hover on a touch screen, so every star is visible and big enough to hit. */
+  .station-item { grid-template-columns: minmax(0, 1fr) 44px; }
+  .star { width: 44px; height: 44px; opacity: 1; }
+  .star svg { width: 20px; height: 20px; }
+  .station-group { font-size: 11px; padding: 14px 8px 4px; }
 }
 body.modal { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
