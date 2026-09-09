@@ -10,6 +10,7 @@
   --accent: #e0263c;
   --accent-2: #ff5b6b;
   --accent-soft: rgba(224, 38, 60, 0.18);
+  --option-active: #38161e;   /* accent-soft already flattened onto bg-2, see .select option */
   --ok: #4ade80;
   --warn: #fbbf24;
   --viz: rgba(224, 38, 60, 0.75);
@@ -31,6 +32,7 @@
   --accent: #c81f33;
   --accent-2: #a3162a;
   --accent-soft: rgba(200, 31, 51, 0.14);
+  --option-active: #f7e0e2;
   --ok: #15803d;
   --warn: #b45309;
   --viz: rgba(200, 31, 51, 0.7);
@@ -53,6 +55,7 @@
     --accent: #c81f33;
     --accent-2: #a3162a;
     --accent-soft: rgba(200, 31, 51, 0.14);
+  --option-active: #f7e0e2;
     --ok: #15803d;
     --warn: #b45309;
     --viz: rgba(200, 31, 51, 0.7);
@@ -278,13 +281,16 @@ input[type="range"]::-moz-range-thumb {
   background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
   color-scheme: inherit;
 }
-/* The native option popup ignores the translucent select background, so give it solid colours. */
+/* The native option popup ignores the translucent select background, so give it solid colours.
+   Every colour here has to be solid, --accent-soft included: the popup is drawn by the browser,
+   not composited onto the page, so an alpha below 1 lands on white and the row flashes pale in
+   dark mode. --option-active is that same tint already flattened onto --bg-2. */
 .select option {
   background: var(--bg-2);
   color: var(--fg);
 }
 .select option:checked, .select option:hover {
-  background: var(--accent-soft);
+  background: var(--option-active);
   color: var(--fg);
 }
 
