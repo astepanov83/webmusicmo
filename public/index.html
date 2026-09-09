@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
+  <!-- Stream hosts read the Referer and some of them block on it. SomaFM answers 403 to any
+       request whose Referer contains "localhost", so the player is dead on a dev machine
+       while the same URL plays fine when opened directly. Media elements have no
+       referrerpolicy attribute, so the policy has to be set for the whole page. Requests to
+       our own server keep their Referer; nothing goes out to a stream host or a station site. -->
+  <meta name="referrer" content="same-origin">
   <meta name="theme-color" content="#0b0b0e">
   <title>webmusicmo</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
